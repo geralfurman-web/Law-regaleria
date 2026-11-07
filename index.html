@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Law: artículos para regalar, cocinar, organizar y disfrutar todos los días.">
+  <title>Law | La regalería</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+  <header class="site-header" id="header">
+    <div class="header__inner">
+      <a class="brand" href="index.html" aria-label="Law, recargar e ir al inicio">
+        <span class="brand__name">Law</span>
+      </a>
+
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="mainNav">
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav class="main-nav" id="mainNav" aria-label="Navegación principal">
+        <a href="#inicio">Inicio</a>
+        <a href="#catalogo">Catálogo</a>
+        <a href="#descuentos">Descuentos</a>
+        <a href="#sobre-mi">Sobre mí</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+
+      <div class="header__actions">
+        <a class="button button--small" href="#contacto">Consultar</a>
+        <a class="bag" href="#contacto" aria-label="Consultar productos, 0 artículos">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6.5 8.5h11l1 12h-13l1-12Z"></path>
+            <path d="M9 9V6a3 3 0 0 1 6 0v3"></path>
+          </svg>
+          <span class="bag__count">0</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="inicio" aria-labelledby="hero-title">
+      <picture>
+        <source media="(max-width: 600px)" srcset="assets/fondo2-celular.png">
+        <img class="hero__image" src="assets/fondo2.jpg" alt="Tazas coloridas sobre una composición turquesa" fetchpriority="high">
+      </picture>
+      <div class="hero__veil" aria-hidden="true"></div>
+      <div class="hero__content">
+        <h1 id="hero-title">
+          <span class="hero__line">LA</span>
+          <span class="hero__line">REGALERÍA</span>
+          <span class="hero__line hero__line--accent">DE <span class="hero-law">LAW<svg viewBox="0 0 56 34" aria-hidden="true"><path d="M37 18 51 3M43 27l11 1" /></svg></span></span>
+        </h1>
+        <p>Encuentra el mejor presente aqui!</p>
+        <a class="button button--hero" href="#catalogo">Ver catalogo</a>
+      </div>
+    </section>
+
+    <section class="categories section-shell" aria-labelledby="categories-title">
+      <div class="section-heading">
+        <div>
+          <span class="section-kicker">Elegí lo que te acompaña</span>
+          <h2 id="categories-title">Nuestras categorías</h2>
+        </div>
+      </div>
+      <div class="category-carousel">
+        <button class="carousel-arrow carousel-arrow--prev" id="categoryPrev" type="button" aria-label="Categorías anteriores">‹</button>
+        <div class="category-grid" id="categoryGrid"></div>
+        <button class="carousel-arrow carousel-arrow--next" id="categoryNext" type="button" aria-label="Más categorías">›</button>
+      </div>
+    </section>
+
+    <section class="catalog section-shell" id="catalogo" aria-labelledby="catalog-title">
+      <div class="section-heading section-heading--catalog">
+        <div>
+          <span class="section-kicker">Encontrá tu próximo favorito</span>
+          <h2 id="catalog-title">Nuestro catálogo</h2>
+        </div>
+      </div>
+      <div class="catalog-tools">
+        <label class="search-box">
+          <span class="sr-only">Buscar por nombre</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          <input id="searchInput" type="search" placeholder="¿Qué estás buscando?" aria-label="Buscar por nombre" autocomplete="off">
+        </label>
+        <div class="filter-block filter-block--search">
+          <button class="filter-toggle" id="filterToggle" type="button" aria-expanded="false" aria-controls="filterPanel"><svg class="filter-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"></path></svg> Filtros <b id="activeFilterCount">0</b><span class="filter-toggle__close">×</span></button>
+        </div>
+        <button class="clear-filters" id="clearFilters" type="button">Limpiar filtros</button>
+        <div class="filter-panel" id="filterPanel" aria-hidden="true">
+          <div class="filter-column"><h4>Precio</h4><div id="priceFilters"></div></div>
+          <div class="filter-column"><h4>Colores</h4><div id="colorFilters"></div></div>
+          <div class="filter-column"><h4>Categorías</h4><div id="categoryFilters"></div></div>
+          <p class="filter-note">Puedes elegir una opción por apartado.</p>
+        </div>
+      </div>
+      <div class="product-grid" id="productGrid"></div>
+      <div class="empty-state" id="emptyState" hidden>
+        <span aria-hidden="true">⌕</span><h3>No encontramos piezas con esos filtros</h3>
+        <p>Probá con otra combinación y seguí buscando tu favorito.</p>
+        <button class="outline-button" id="emptyClearFilters" type="button">Limpiar filtros</button>
+      </div>
+    </section>
+
+    <section class="benefits section-shell section-shell--soft" aria-labelledby="benefits-title">
+      <div class="section-heading reveal"><div><span class="section-kicker">Pensado para vos</span><h2 id="benefits-title">Comprar fácil, disfrutar más</h2></div></div>
+      <div class="benefits-grid">
+        <article class="benefit-card reveal"><span class="benefit-icon">⌁</span><h3>Envíos a todo el país</h3><p>Recibí tus elegidos donde estés.</p></article>
+        <article class="benefit-card reveal"><span class="benefit-icon">%</span><h3>Cuotas sin interés</h3><p>Consultá las opciones disponibles.</p></article>
+        <article class="benefit-card reveal"><span class="benefit-icon">♡</span><h3>Atención personalizada</h3><p>Te ayudamos a encontrar el regalo ideal.</p></article>
+        <article class="benefit-card reveal"><span class="benefit-icon">✓</span><h3>Compra con garantía</h3><p>Elegimos productos para que duren.</p></article>
+      </div>
+    </section>
+
+    <section class="discounts section-shell" id="descuentos" aria-labelledby="discounts-title">
+      <div class="discount-banner reveal" id="discountBanner" role="region" aria-roledescription="carrusel" aria-label="Descuentos" tabindex="0">
+        <div class="discount-blobs" aria-hidden="true"><span></span><i></i><b></b></div>
+        <div class="discount-fixed">
+          <span class="section-kicker">Oportunidades</span>
+          <h2 id="discounts-title">Descuentos para <em>aprovechar</em></h2>
+          <div class="discount-controls"><button class="carousel-arrow" id="discountPrev" type="button" aria-label="Oferta anterior">‹</button><button class="carousel-arrow" id="discountNext" type="button" aria-label="Siguiente oferta">›</button></div>
+        </div>
+        <div class="discount-offer" id="discountOffer" aria-live="off"></div>
+        <div class="carousel-dots" id="discountDots" aria-label="Seleccionar oferta"></div>
+      </div>
+    </section>
+
+    <section class="about section-shell section-shell--soft" id="sobre-mi" aria-labelledby="about-title">
+      <div class="about-grid">
+        <div class="about-media reveal"><img src="assets/fondo2.jpg" alt="Tazas coloridas de Law"><span class="about-badge">Hecho<br>con cariño</span></div>
+        <div class="about-copy reveal"><span class="section-kicker">Detrás de cada detalle</span><h2 id="about-title">Una regalería para celebrar lo cotidiano</h2><p>En Law seleccionamos objetos lindos, útiles y especiales para regalar o regalarte. Nos encanta encontrar ese detalle que transforma un momento simple en algo memorable.</p><a class="button button--about" href="#contacto">Conocé más sobre Law</a></div>
+      </div>
+    </section>
+
+    <section class="contact section-shell" id="contacto" aria-labelledby="contact-title">
+      <div class="contact-grid">
+        <div class="contact-copy reveal"><span class="section-kicker">Estamos para ayudarte</span><h2 id="contact-title">¿Ya encontraste tu favorito?</h2><p>Escribinos y te respondemos por WhatsApp para ayudarte con tu consulta.</p></div>
+        <form class="contact-form reveal" id="contactForm" novalidate>
+          <label>Nombre<input id="contactName" name="name" type="text" autocomplete="name" required></label>
+          <label>Email<input id="contactEmail" name="email" type="email" autocomplete="email" required></label>
+          <label>Mensaje<textarea id="contactMessage" name="message" rows="4" required></textarea></label>
+          <p class="form-message" id="formMessage" role="status"></p>
+          <button class="whatsapp-button" type="submit">Consultar por WhatsApp</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <aside class="consultation-drawer" id="consultationDrawer" aria-hidden="true">
+    <div class="drawer__header"><div><span class="section-kicker">Tu selección</span><h2>Consulta</h2></div><button class="icon-button" id="closeDrawer" type="button" aria-label="Cerrar consulta">×</button></div>
+    <div class="drawer__items" id="consultationItems"></div>
+    <div class="drawer__footer"><p id="drawerEmpty">Agregá productos para armar tu consulta.</p><button class="whatsapp-button" id="consultAll" type="button">Consultar todo por WhatsApp</button></div>
+  </aside>
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+
+  <dialog class="product-modal" id="productModal">
+    <button class="modal-close icon-button" id="closeModal" type="button" aria-label="Cerrar detalle">×</button>
+    <div class="modal__media"><img id="modalImage" alt=""><button class="modal-arrow modal-arrow--prev" id="modalPrev" type="button" aria-label="Color anterior">‹</button><button class="modal-arrow modal-arrow--next" id="modalNext" type="button" aria-label="Color siguiente">›</button></div>
+    <div class="modal__content"><span class="section-kicker" id="modalCategory"></span><h2 id="modalName"></h2><div class="modal-price" id="modalPrice"></div><p class="modal__description" id="modalDescription"></p><div class="color-picker" id="modalColors"></div><div class="modal-stats" id="modalStats"></div><div class="modal-actions"><button class="whatsapp-button" id="modalWhatsapp" type="button">Consultar este</button><button class="outline-button" id="modalAdd" type="button">+ Agregar a consulta</button></div></div>
+  </dialog>
+
+  <footer class="site-footer">
+    <a class="brand footer-brand" href="index.html" aria-label="Law, recargar e ir al inicio">Law</a>
+    <nav aria-label="Enlaces del pie de página"><a href="#catalogo">Catálogo</a><a href="#descuentos">Descuentos</a><a href="#sobre-mi">Sobre mí</a><a href="#contacto">Contacto</a></nav>
+    <div class="footer-socials"><a href="#contacto" aria-label="Instagram">◎</a><a href="#contacto" aria-label="Facebook">f</a><a href="#contacto" aria-label="TikTok">♪</a></div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
