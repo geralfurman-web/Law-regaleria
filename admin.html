@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#11b5c3">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="admin-manifest.webmanifest">
+  <link rel="icon" href="admin-icon.svg" type="image/svg+xml">
+  <title>Panel de dueño | Law</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <section class="auth-card" id="authView" aria-labelledby="loginTitle">
+      <a class="brand" href="index.html" aria-label="Volver a la tienda">Law<span>®</span></a>
+      <h1 id="loginTitle">Panel del dueño</h1>
+      <p>Ingresá para actualizar tu catálogo.</p>
+      <form id="loginForm">
+        <label>Email<input id="loginEmail" type="email" autocomplete="email" required></label>
+        <label>Contraseña<div class="password-field"><input id="loginPassword" type="password" autocomplete="current-password" required><button id="togglePassword" type="button" aria-label="Mostrar contraseña">Mostrar</button></div></label>
+        <button class="primary-button" type="submit">Ingresar</button>
+      </form>
+      <p class="feedback" id="loginFeedback" role="alert"></p>
+    </section>
+
+    <section class="panel" id="adminView" hidden>
+      <header class="topbar">
+        <div><span class="eyebrow">CATÁLOGO</span><h1>Hola, dueña</h1></div>
+        <div class="topbar-actions"><button class="secondary-button" id="selectionButton" type="button">Seleccionar</button><button class="secondary-button" id="logoutButton" type="button">Salir</button></div>
+      </header>
+
+      <div class="stats" id="stats" aria-label="Filtros rápidos"></div>
+      <section class="toolbar" aria-label="Buscar y ordenar">
+        <label class="search-field"><span class="sr-only">Buscar producto</span><input id="searchInput" type="search" placeholder="Buscar producto…" autocomplete="off"></label>
+        <label><span class="sr-only">Categoría</span><select id="categoryFilter"><option value="">Todas las categorías</option></select></label>
+        <label><span class="sr-only">Orden</span><select id="sortSelect"><option value="recent">Más recientes</option><option value="name">Nombre</option><option value="price">Precio</option><option value="manual">Orden manual</option></select></label>
+      </section>
+      <p class="feedback" id="catalogFeedback" role="status"></p>
+      <section id="productList" class="product-list" aria-live="polite"></section>
+      <button class="secondary-button more-button" id="moreButton" type="button" hidden>Ver más</button>
+      <button class="primary-button new-product-button" id="newProductButton" type="button">+ Nuevo producto</button>
+    </section>
+    <nav class="admin-nav" id="adminNav" aria-label="Secciones del panel" hidden>
+      <button class="is-active" type="button" data-view="products">Productos</button>
+      <button type="button" data-view="categories">Categorías</button>
+      <button type="button" data-view="settings">Ajustes</button>
+    </nav>
+  </main>
+
+  <section class="workspace-view" id="categoriesView" hidden>
+    <header class="view-header"><div><span class="eyebrow">ORGANIZACIÓN</span><h2>Categorías</h2></div><button class="secondary-button" id="newCategoryButton" type="button">+ Nueva</button></header>
+    <p class="feedback" id="categoryFeedback" role="status"></p>
+    <div class="category-list" id="categoryList"></div>
+  </section>
+
+  <section class="workspace-view" id="settingsView" hidden>
+    <header class="view-header"><div><span class="eyebrow">CUENTA</span><h2>Ajustes</h2></div></header>
+    <div class="settings-card">
+      <h3>Seguridad</h3>
+      <form id="passwordForm"><label>Nueva contraseña<input id="newPassword" type="password" minlength="6" autocomplete="new-password" required></label><label>Repetir contraseña<input id="repeatPassword" type="password" minlength="6" autocomplete="new-password" required></label><button class="primary-button" type="submit">Cambiar contraseña</button></form>
+      <p class="feedback" id="settingsFeedback" role="status"></p>
+    </div>
+    <div class="settings-card"><h3>Copias de seguridad</h3><div class="settings-actions"><button class="secondary-button" id="exportJsonButton" type="button">Descargar copia del catálogo</button><button class="secondary-button" id="exportCsvButton" type="button">Exportar a CSV</button></div></div>
+  </section>
+
+  <section class="bulk-bar" id="bulkBar" hidden aria-label="Acciones masivas">
+    <strong><span id="selectedCount">0</span> elegidos</strong>
+    <button class="secondary-button" id="selectAllButton" type="button">Seleccionar todo</button>
+    <div class="bulk-actions"><button type="button" data-bulk="hide">Ocultar</button><button type="button" data-bulk="show">Mostrar</button><button type="button" data-bulk="soldout">Agotar</button><button type="button" data-bulk="category">Categoría</button><button type="button" data-bulk="price">Precio %</button><button type="button" data-bulk="offer">Oferta %</button><button type="button" data-bulk="delete">Eliminar</button></div>
+  </section>
+
+  <dialog class="editor-dialog" id="editorDialog" aria-labelledby="editorTitle">
+    <form id="productForm" method="dialog">
+      <header class="editor-header"><div><span class="eyebrow">PRODUCTO</span><h2 id="editorTitle">Nuevo producto</h2></div><button class="close-button" id="closeEditor" type="button" aria-label="Cerrar">×</button></header>
+      <div class="editor-body">
+        <label>Nombre<input id="productName" type="text" required maxlength="120"></label>
+        <div class="form-grid"><label>Precio<input id="productPrice" type="number" inputmode="decimal" min="0" step="1" required></label><label>Stock<input id="productStock" type="number" inputmode="numeric" min="0" step="1"></label></div>
+        <label>Categoría<select id="productCategory" required></select></label>
+        <details class="more-options"><summary>Más opciones</summary>
+          <div class="details-body">
+            <div class="form-grid"><label>Precio de oferta<input id="productOfferPrice" type="number" inputmode="decimal" min="0" step="1"></label><label>Descuento %<input id="productOfferPercent" type="number" inputmode="decimal" min="0" max="100" step="1"></label></div>
+            <label class="switch-row"><span>En oferta</span><input id="productOffer" type="checkbox"><i></i></label>
+            <div class="form-grid"><label>Estado<select id="productStatus"><option value="activo">Activo</option><option value="agotado">Agotado</option><option value="oculto">Oculto</option></select></label><label>Orden<input id="productOrder" type="number" inputmode="numeric" step="1"></label></div>
+            <label>Detalles <span class="hint">(separados con |)</span><input id="productDetails" type="text"></label>
+            <label>Descripción<textarea id="productDescription" rows="3"></textarea></label>
+          </div>
+        </details>
+        <section class="colors-section"><div class="section-title"><h3>Colores</h3><button class="secondary-button small-button" id="addColorButton" type="button">+ Agregar color</button></div><div id="colorsList"></div></section>
+      </div>
+      <footer class="editor-footer"><p class="feedback" id="editorFeedback" role="status"></p><button class="primary-button" id="saveProductButton" type="submit">Guardar producto</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="confirm-dialog" id="confirmDialog">
+    <form method="dialog"><h2 id="confirmTitle">¿Eliminar producto?</h2><p id="confirmText">Esta acción no se puede deshacer.</p><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button class="danger-button" id="confirmAction" value="confirm">Eliminar</button></div></form>
+  </dialog>
+
+  <dialog class="confirm-dialog" id="previewDialog">
+    <form method="dialog"><h2 id="previewTitle">Vista previa</h2><div class="preview-list" id="previewList"></div><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button class="primary-button" id="applyPreview" value="confirm">Aplicar</button></div></form>
+  </dialog>
+  <dialog class="confirm-dialog" id="bulkInputDialog">
+    <form id="bulkInputForm" method="dialog"><h2 id="bulkInputTitle">Cambio masivo</h2><label id="bulkInputLabel">Valor<input id="bulkInputValue" type="number" inputmode="decimal" step="1" required></label><label id="bulkRoundingLabel">Redondear<select id="bulkRounding"><option value="none">Sin redondear</option><option value="10">A la decena</option><option value="100">A la centena</option></select></label><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button class="primary-button" type="submit">Continuar</button></div></form>
+  </dialog>
+  <dialog class="confirm-dialog" id="categoryDialog">
+    <form id="categoryForm" method="dialog"><h2 id="categoryDialogTitle">Nueva categoría</h2><label>Nombre<input id="categoryName" type="text" required maxlength="80"></label><label>Imagen<input id="categoryImage" type="file" accept="image/*"></label><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button class="primary-button" type="submit">Guardar</button></div></form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

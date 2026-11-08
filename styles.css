@@ -204,7 +204,7 @@ button { font: inherit; }
 .chip--color i { width: .65rem; height: .65rem; border-radius: 50%; background: var(--dot); box-shadow: inset 0 0 0 1px rgba(16,27,42,.16); }
 .product-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2.1rem 1.2rem; }
 .product-card { min-width: 0; animation: card-in .45s var(--ease-hero) both; }
-.product-card__media { overflow: hidden; aspect-ratio: 1.1; border-radius: 1rem; background: var(--color-gray); }
+.product-card__media { position: relative; overflow: hidden; aspect-ratio: 1.1; border-radius: 1rem; background: var(--color-gray); }
 .product-card__media img { width: 100%; height: 100%; object-fit: cover; transition: transform .45s var(--ease-hero), opacity .25s ease; }
 .product-card:hover .product-card__media img { transform: scale(1.06); }
 .product-card__body { padding-top: .9rem; }
@@ -358,6 +358,43 @@ button { font: inherit; }
   .benefits-grid { grid-template-columns: repeat(2, 1fr); }
   .filter-block--secondary { align-items: start; flex-wrap: wrap; }
 }
+.catalog-status {
+  min-height: 1.5rem;
+  margin: 1rem 0;
+  color: var(--dark);
+  text-align: center;
+}
+.catalog-status.is-error {
+  cursor: pointer;
+  color: var(--turquoise);
+  text-decoration: underline;
+}
+.load-more-products {
+  display: block;
+  margin: 1.5rem auto 0;
+}
+.stock-badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1;
+  padding: .35rem .7rem;
+  border-radius: 999px;
+  background: var(--dark);
+  color: #fff;
+  font-size: .75rem;
+}
+.skeleton-card { pointer-events: none; }
+.skeleton-block, .skeleton-line {
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #e8ebec 25%, #f6f7f7 50%, #e8ebec 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.4s linear infinite;
+}
+.skeleton-block { aspect-ratio: 1.1; }
+.skeleton-line { width: 75%; height: 1rem; margin-top: 1rem; }
+.skeleton-line--short { width: 45%; height: .75rem; margin-top: .65rem; }
+@keyframes skeleton-loading { to { background-position: -200% 0; } }
 @media (max-width: 600px) {
   .hero__image { object-fit: contain; object-position: center; background: var(--color-gray); animation: hero-image-in var(--timing-hero-fade) ease both, hero-image-zoom var(--timing-zoom) ease var(--timing-hero-zoom-delay) both; }
   .hero__content { width: 60%; padding-top: clamp(5.5rem, 12vh, 7rem); }

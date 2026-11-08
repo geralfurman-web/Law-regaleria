@@ -101,6 +101,8 @@
         </div>
       </div>
       <div class="product-grid" id="productGrid"></div>
+      <div class="catalog-status" id="catalogStatus" role="status" aria-live="polite"><span></span><button class="outline-button" id="retryCatalog" type="button" hidden>Reintentar</button></div>
+      <button class="outline-button load-more-products" id="loadMoreProducts" type="button" hidden>Ver más productos</button>
       <div class="empty-state" id="emptyState" hidden>
         <span aria-hidden="true">⌕</span><h3>No encontramos piezas con esos filtros</h3>
         <p>Probá con otra combinación y seguí buscando tu favorito.</p>
@@ -171,6 +173,8 @@
     <div class="footer-socials"><a href="#contacto" aria-label="Instagram">◎</a><a href="#contacto" aria-label="Facebook">f</a><a href="#contacto" aria-label="TikTok">♪</a></div>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

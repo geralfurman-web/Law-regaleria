@@ -5,7 +5,7 @@ window.addEventListener("load", () => window.scrollTo(0, 0), { once: true });
 const WHATSAPP_NUMBER = "5491100000000";
 const CONSULTATION_STORAGE_KEY = "law_consulta";
 
-const categoryData = [
+let categoryData = [
   { name: "Carteras", visual: "cartera", color: "#b9dfe0" }, { name: "Mochilas", visual: "mochila", color: "#d8c6b8" },
   { name: "Botellas", visual: "botella", color: "#b8d7dc" }, { name: "Cocina", visual: "cocina", color: "#ead6aa" },
   { name: "Cerámica", visual: "cerámica", color: "#d6c6d9" }, { name: "Termos de mate", visual: "termo", color: "#c5d5be" },
@@ -17,7 +17,7 @@ function placeholderImage(label, background, accent = "#11b5c3") {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-const products = [
+const PRODUCTOS_RESPALDO = [
   { id: 1, name: "Cartera esencial", category: "Carteras", price: 38500, colors: [{ name: "Arena", value: "#c7b9a6" }, { name: "Negro", value: "#20242b" }], details: ["24 × 18 cm", "Cuero ecológico", "Bolsillo interno"], description: "Una cartera liviana y versátil para acompañarte todos los días." },
   { id: 2, name: "Cartera bandolera", category: "Carteras", price: 32900, precio_oferta: 27965, en_oferta: true, estado: "activo", colors: [{ name: "Turquesa", value: "#11b5c3" }, { name: "Chocolate", value: "#6d5144" }], details: ["22 × 16 cm", "Correa regulable", "Cierre metálico"], description: "Diseño cómodo con el tamaño justo para salir con lo esencial." },
   { id: 3, name: "Mochila urbana", category: "Mochilas", price: 45900, colors: [{ name: "Piedra", value: "#9b9d98" }, { name: "Verde", value: "#7d9a83" }], details: ["42 × 30 cm", "Tela impermeable", "Bolsillo notebook"], description: "Espaciosa, resistente y lista para acompañar tu ritmo." },
@@ -36,18 +36,29 @@ const products = [
   { id: 16, name: "Scrunchie textil", category: "Accesorios", price: 4900, colors: [{ name: "Verde", value: "#8da98d" }, { name: "Chocolate", value: "#6d5144" }], details: ["Unitario", "Tela suave", "Elástico reforzado"], description: "Un accesorio simple para sumar un toque especial." }
 ];
 
-products.forEach((product) => product.colors.forEach((color) => {
+PRODUCTOS_RESPALDO.forEach((product) => product.colors.forEach((color) => {
   color.image = placeholderImage(product.name, color.value, color.value === "#20242b" ? "#11b5c3" : "#101b2a");
 }));
 
+let products = PRODUCTOS_RESPALDO;
 const TIEMPO_OFERTA = 5000;
 const discountOffers = [];
+const CATALOG_CACHE_KEY = "law_catalogo_cache";
+const PRODUCTS_PAGE_SIZE = 24;
+const PRICE_RANGES = [
+  { value: "low", label: "Hasta $20.000", test: (price) => price <= 20000 },
+  { value: "middle", label: "$20.000 a $40.000", test: (price) => price > 20000 && price <= 40000 },
+  { value: "high", label: "Más de $40.000", test: (price) => price > 40000 }
+];
 
 const header = document.querySelector("#header");
 const menuToggle = document.querySelector("#menuToggle");
 const mainNav = document.querySelector("#mainNav");
 const categoryGrid = document.querySelector("#categoryGrid");
 const productGrid = document.querySelector("#productGrid");
+const catalogStatus = document.querySelector("#catalogStatus");
+const retryCatalog = document.querySelector("#retryCatalog");
+const loadMoreProducts = document.querySelector("#loadMoreProducts");
 const searchInput = document.querySelector("#searchInput");
 const emptyState = document.querySelector("#emptyState");
 const categoryFilters = document.querySelector("#categoryFilters");
@@ -76,6 +87,112 @@ let modalProduct = null;
 let modalColorIndex = 0;
 let categoryDragMoved = false;
 let modalOpenedFromKeyboard = false;
+let visibleProductCount = PRODUCTS_PAGE_SIZE;
+let catalogLoading = false;
+let lastCatalogLoad = 0;
+let catalogRetryTimer = null;
+
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[character]));
+}
+function setCatalogStatus(message, isError = false) {
+  catalogStatus.querySelector("span").textContent = message;
+  catalogStatus.classList.toggle("is-error", isError);
+  retryCatalog.hidden = !isError;
+}
+function readCatalogCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY) || "null");
+    return cached?.data && Array.isArray(cached.data.categories) && Array.isArray(cached.data.products) ? cached.data : null;
+  } catch (error) {
+    console.warn("No se pudo leer la caché del catálogo.", error);
+    return null;
+  }
+}
+function writeCatalogCache(data) {
+  try {
+    localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({ date: new Date().toISOString(), data }));
+  } catch (error) {
+    console.warn("No se pudo guardar la caché del catálogo.", error);
+  }
+}
+function normalizeProduct(row) {
+  if (row.name && row.colors) return row;
+  const colors = Array.isArray(row.colores) ? row.colores.map((color) => ({
+    name: color.nombre || color.name || "Natural",
+    value: color.hex || color.value || "#11b5c3",
+    image: Array.isArray(color.imagenes) && color.imagenes[0] ? color.imagenes[0] : (color.image || placeholderImage(row.nombre, color.hex || "#eef0f1"))
+  })) : [];
+  return {
+    id: row.id,
+    name: row.nombre,
+    category: row.categoria?.nombre || row.categoria_nombre || "",
+    categoryId: row.categoria_id,
+    price: Number(row.precio) || 0,
+    precio_oferta: row.precio_oferta == null ? null : Number(row.precio_oferta),
+    en_oferta: Boolean(row.en_oferta),
+    stock: row.stock == null ? null : Number(row.stock),
+    estado: row.estado || "activo",
+    colors: colors.length ? colors : [{ name: "Natural", value: "#eef0f1", image: placeholderImage(row.nombre, "#eef0f1") }],
+    details: Array.isArray(row.detalles) ? row.detalles : String(row.detalles || "").split("|").map((item) => item.trim()).filter(Boolean),
+    description: row.descripcion || ""
+  };
+}
+function normalizeCategory(row) {
+  return { id: row.id, name: row.nombre || row.name, image: row.imagen_url || row.image || "", order: row.orden || row.order || 0 };
+}
+function applyCatalogData(data) {
+  categoryData = data.categories.map(normalizeCategory);
+  products = data.products.map(normalizeProduct).filter((product) => product.estado !== "oculto");
+  products.forEach((product) => product.colors.forEach((color) => {
+    if (!color.image) color.image = placeholderImage(product.name, color.value);
+  }));
+  visibleProductCount = PRODUCTS_PAGE_SIZE;
+  lastCatalogLoad = Date.now();
+  consultation.length = 0;
+  restoreConsultation();
+  renderCategories();
+  renderFilters();
+  renderProducts();
+  renderDrawer();
+  renderDiscounts();
+  observeReveals();
+  setupSectionNavigation();
+}
+async function fetchCatalogData() {
+  if (!window.db) throw new Error("Supabase todavía no está configurado.");
+  const [categoriesResult, productsResult] = await Promise.all([
+    window.db.from("categorias").select("id,nombre,imagen_url,orden,visible").eq("visible", true).order("orden", { ascending: true }),
+    window.db.from("productos").select("id,nombre,categoria_id,precio,precio_oferta,en_oferta,stock,estado,detalles,descripcion,colores,orden,created_at,categoria:categorias(nombre)").neq("estado", "oculto").order("orden", { ascending: true }).order("created_at", { ascending: false })
+  ]);
+  if (categoriesResult.error) throw categoriesResult.error;
+  if (productsResult.error) throw productsResult.error;
+  return { categories: categoriesResult.data || [], products: productsResult.data || [] };
+}
+async function cargarCatalogo() {
+  if (catalogLoading) return;
+  catalogLoading = true;
+  setCatalogStatus("Cargando catálogo…");
+  const cached = readCatalogCache();
+  if (cached) applyCatalogData(cached);
+  try {
+    const data = await fetchCatalogData();
+    writeCatalogCache(data);
+    applyCatalogData(data);
+    if (!catalogStatus.querySelector("span").textContent.startsWith("Un producto")) setCatalogStatus("");
+  } catch (error) {
+    console.warn("No se pudo actualizar el catálogo.", error);
+    if (cached) setCatalogStatus("Mostrando la última versión disponible.");
+    else {
+      applyCatalogData({ categories: categoryData, products: PRODUCTOS_RESPALDO });
+      setCatalogStatus("No pudimos actualizar el catálogo. Podés reintentar.", true);
+    }
+  } finally {
+    catalogLoading = false;
+  }
+}
 let modalTrigger = null;
 let modalTriggerKey = null;
 
@@ -90,16 +207,24 @@ function restoreConsultation() {
   try {
     const saved = JSON.parse(localStorage.getItem(CONSULTATION_STORAGE_KEY) || "[]");
     if (!Array.isArray(saved)) return;
+    let removedUnavailable = false;
     saved.forEach((entry) => {
       const item = typeof entry === "number" ? { id: entry, color: null, quantity: 1 } : entry;
-      const product = products.find((candidate) => candidate.id === Number(item.id));
-      if (!product) return;
+      const product = products.find((candidate) => String(candidate.id) === String(item.id));
+      if (!product) {
+        removedUnavailable = true;
+        return;
+      }
       const color = product.colors.some((candidate) => candidate.name === item.color) ? item.color : product.colors[0].name;
       const quantity = Math.max(1, Number(item.quantity) || 1);
       const existing = consultation.find((selected) => selected.id === product.id && selected.color === color);
       if (existing) existing.quantity += quantity;
       else consultation.push({ id: product.id, color, quantity });
     });
+    if (removedUnavailable) {
+      saveConsultation();
+      if (catalogStatus && !catalogLoading) setCatalogStatus("Un producto ya no está disponible.");
+    }
   } catch (error) {
     console.warn("No se pudo restaurar la consulta local.", error);
   }
@@ -109,12 +234,13 @@ function money(value) { return new Intl.NumberFormat("es-AR", { style: "currency
 function slug(value) { return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
 function whatsappUrl(message) { return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`; }
 function productImage(product, index = 0) { return product.colors[index].image; }
+function getProduct(id) { return products.find((item) => String(item.id) === String(id)); }
 
 function renderCategories() {
   categoryGrid.innerHTML = categoryData.map((category) => `
-    <button class="category-card reveal" type="button" role="button" tabindex="0" data-categoria="${category.name}" data-category="${category.name}">
-      <img src="${placeholderImage(category.visual, category.color)}" alt="${category.name}">
-      <strong>${category.name}</strong><span><b data-count-to="${products.filter((product) => product.category === category.name).length}">0</b> productos</span>
+    <button class="category-card reveal" type="button" role="button" tabindex="0" data-categoria="${escapeHTML(category.name)}" data-category="${escapeHTML(category.name)}">
+      <img src="${escapeHTML(category.image || placeholderImage(category.name, "#eef0f1"))}" alt="${escapeHTML(category.name)}" loading="lazy" width="640" height="480">
+      <strong>${escapeHTML(category.name)}</strong><span><b data-count-to="${products.filter((product) => product.category === category.name).length}">0</b> productos</span>
     </button>`).join("");
   categoryGrid.querySelectorAll(".category-card").forEach((card) => {
     const selectCategory = () => {
@@ -145,9 +271,12 @@ function renderCategories() {
 
 function renderFilters() {
   const colors = [...new Set(products.flatMap((product) => product.colors.map((color) => color.name)))];
-  const option = (group, value, label, extra = "") => `<label class="filter-option"><input type="checkbox" data-group="${group}" data-value="${value}"><span class="checkbox-mark"></span>${extra}${label}</label>`;
-  colorFilters.innerHTML = colors.map((color) => option("color", color, color, `<i class="filter-swatch" style="--dot:${products.flatMap((p) => p.colors).find((c) => c.name === color).value}"></i>`)).join("");
-  priceFilters.innerHTML = [option("price", "low", "Hasta $20.000"), option("price", "middle", "$20.000 a $40.000"), option("price", "high", "Más de $40.000")].join("");
+  const option = (group, value, label, extra = "") => `<label class="filter-option"><input type="checkbox" data-group="${escapeHTML(group)}" data-value="${escapeHTML(value)}"><span class="checkbox-mark"></span>${extra}${escapeHTML(label)}</label>`;
+  colorFilters.innerHTML = colors.map((color) => {
+    const colorData = products.flatMap((product) => product.colors).find((item) => item.name === color);
+    return option("color", color, color, `<i class="filter-swatch" style="--dot:${escapeHTML(colorData?.value || "#11b5c3")}"></i>`);
+  }).join("");
+  priceFilters.innerHTML = PRICE_RANGES.map((range) => option("price", range.value, range.label)).join("");
   categoryFilters.innerHTML = categoryData.map((category) => option("category", category.name, category.name, `<small>${products.filter((p) => p.category === category.name).length}</small>`)).join("");
   filterPanel.querySelectorAll("input").forEach((input) => input.addEventListener("change", () => {
     filters[input.dataset.group] = input.checked ? input.dataset.value : "Todos";
@@ -168,9 +297,9 @@ function syncFilterButtons() {
   clearFiltersButton.hidden = active === 0;
 }
 function matchesPrice(product) {
-  if (filters.price === "low") return product.price <= 20000;
-  if (filters.price === "middle") return product.price > 20000 && product.price <= 40000;
-  if (filters.price === "high") return product.price > 40000;
+  const currentPrice = product.en_oferta && Number.isFinite(product.precio_oferta) ? product.precio_oferta : product.price;
+  const range = PRICE_RANGES.find((item) => item.value === filters.price);
+  if (range) return range.test(currentPrice);
   return true;
 }
 function filteredProducts() {
@@ -185,33 +314,40 @@ function filteredProducts() {
 function renderProducts() {
   const list = filteredProducts();
   emptyState.hidden = list.length > 0;
-  productGrid.innerHTML = list.map((product) => `
+  const visible = list.slice(0, visibleProductCount);
+  loadMoreProducts.hidden = visible.length >= list.length;
+  productGrid.innerHTML = visible.map((product) => `
     <article class="product-card reveal" data-id="${product.id}">
-      <div class="product-card__media" role="button" tabindex="0" aria-label="Ver detalle de ${product.name}"><img src="${productImage(product)}" alt="${product.name}" loading="lazy"></div>
-      <div class="product-card__body"><h3>${product.name}</h3><p class="product-details">${product.details.join(" · ")}</p><button class="detail-link" type="button" data-detail="${product.id}">Ver detalle</button>
-        <div class="product-card__meta"><div class="color-dots">${product.colors.map((color, index) => `<button class="color-dot ${index === 0 ? "is-selected" : ""}" type="button" title="${color.name}" aria-label="Color ${color.name}" data-color="${color.name}" data-product="${product.id}" style="--dot:${color.value}"></button>`).join("")}</div><strong>${money(product.price)}</strong></div>
-        <div class="product-card__actions"><button class="whatsapp-button quick-whatsapp" type="button" data-product="${product.id}">◔&nbsp; Consultar este</button><button class="outline-button add-consultation" type="button" data-product="${product.id}">+ Agregar a consulta</button></div>
+      <div class="product-card__media" role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(product.name)}"><img src="${escapeHTML(productImage(product))}" alt="${escapeHTML(product.name)}" loading="lazy" width="640" height="480">${product.estado === "agotado" ? '<span class="stock-badge">Agotado</span>' : ""}</div>
+      <div class="product-card__body"><h3>${escapeHTML(product.name)}</h3><p class="product-details">${escapeHTML(product.details.join(" · "))}</p><button class="detail-link" type="button" data-detail="${product.id}">Ver detalle</button>
+        <div class="product-card__meta"><div class="color-dots">${product.colors.map((color, index) => `<button class="color-dot ${index === 0 ? "is-selected" : ""}" type="button" title="${escapeHTML(color.name)}" aria-label="Color ${escapeHTML(color.name)}" data-color="${escapeHTML(color.name)}" data-product="${product.id}" style="--dot:${escapeHTML(color.value)}"></button>`).join("")}</div><strong>${product.en_oferta && Number.isFinite(product.precio_oferta) ? `<s>${money(product.price)}</s> ${money(product.precio_oferta)}` : money(product.price)}</strong></div>
+        <div class="product-card__actions"><button class="whatsapp-button quick-whatsapp" type="button" data-product="${product.id}">${product.estado === "agotado" ? "Consultar disponibilidad" : "◔  Consultar este"}</button><button class="outline-button add-consultation" type="button" data-product="${product.id}" ${product.estado === "agotado" ? "disabled" : ""}>+ Agregar a consulta</button></div>
       </div>
     </article>`).join("");
-  productGrid.querySelectorAll(".detail-link").forEach((button) => button.addEventListener("click", () => openModal(Number(button.dataset.detail))));
+  productGrid.querySelectorAll(".detail-link").forEach((button) => button.addEventListener("click", () => openModal(button.dataset.detail)));
   productGrid.querySelectorAll(".product-card__media").forEach((media) => {
-    const open = () => openModal(Number(media.closest(".product-card").dataset.id));
+    const open = () => openModal(media.closest(".product-card").dataset.id);
     media.addEventListener("click", open);
     media.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } });
   });
   productGrid.querySelectorAll(".color-dot").forEach((button) => button.addEventListener("click", () => {
-    const product = products.find((item) => item.id === Number(button.dataset.product));
+    const product = getProduct(button.dataset.product);
     const card = button.closest(".product-card");
     card.querySelector("img").src = productImage(product, product.colors.findIndex((color) => color.name === button.dataset.color));
     card.querySelectorAll(".color-dot").forEach((dot) => dot.classList.toggle("is-selected", dot === button));
   }));
-  productGrid.querySelectorAll(".quick-whatsapp").forEach((button) => button.addEventListener("click", () => contactProduct(Number(button.dataset.product))));
+  productGrid.querySelectorAll(".quick-whatsapp").forEach((button) => button.addEventListener("click", () => contactProduct(button.dataset.product)));
   productGrid.querySelectorAll(".add-consultation").forEach((button) => button.addEventListener("click", () => {
     const card = button.closest(".product-card");
     const selected = card.querySelector(".color-dot.is-selected");
-    addToConsultation(Number(button.dataset.product), selected?.dataset.color);
+    addToConsultation(button.dataset.product, selected?.dataset.color);
   }));
   observeReveals();
+}
+function renderCatalogSkeletons() {
+  productGrid.innerHTML = Array.from({ length: 6 }, () => '<article class="product-card skeleton-card" aria-hidden="true"><div class="skeleton-block"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-line--short"></div></article>').join("");
+  emptyState.hidden = true;
+  loadMoreProducts.hidden = true;
 }
 
 function renderDiscounts() {
@@ -249,7 +385,7 @@ function renderDiscountDots() {
 function renderDiscountOffer(animate = true) {
   if (!discountOffers.length) return;
   const offer = discountOffers[discountIndex];
-  const product = products.find((item) => item.id === offer.productoId);
+  const product = getProduct(offer.productoId);
   discountOffer.replaceChildren();
   discountOffer.setAttribute("aria-label", `Oferta ${discountIndex + 1} de ${discountOffers.length}`);
   const content = document.createElement("div");
@@ -304,7 +440,7 @@ function renderDiscountOffer(animate = true) {
   discountOffer.classList.toggle("is-changing", animate);
   if (animate) discountAnimationTimer = setTimeout(() => discountOffer.classList.remove("is-changing"), 800);
   const next = discountOffers[(discountIndex + 1) % discountOffers.length];
-  const nextProduct = products.find((item) => item.id === next.productoId);
+  const nextProduct = getProduct(next.productoId);
   if (nextProduct) { const preload = new Image(); preload.src = productImage(nextProduct); }
 }
 let discountIndex = 0;
@@ -376,12 +512,16 @@ function setupSectionNavigation() {
 }
 
 function contactProduct(id, colorName) {
-  const product = products.find((item) => item.id === id);
+  const product = getProduct(id);
+  if (!product) return;
   const color = colorName || product.colors[0].name;
-  window.open(whatsappUrl(`Hola, quiero consultar por "${product.name}" en color ${color}.`), "_blank", "noopener");
+  const currentPrice = product.en_oferta && Number.isFinite(product.precio_oferta) ? product.precio_oferta : product.price;
+  const availability = product.estado === "agotado" ? " ¿Podrían avisarme cuándo vuelve a haber stock?" : "";
+  window.open(whatsappUrl(`Hola, quiero consultar por "${product.name}" en color ${color}. Precio vigente: ${money(currentPrice)}.${availability}`), "_blank", "noopener");
 }
 function addToConsultation(id, colorName) {
-  const product = products.find((item) => item.id === id);
+  const product = getProduct(id);
+  if (!product || product.estado === "agotado") return;
   const color = colorName || product.colors[0].name;
   const existing = consultation.find((item) => item.id === id && item.color === color);
   if (existing) existing.quantity += 1;
@@ -397,24 +537,26 @@ function renderDrawer() {
   drawerEmpty.hidden = consultation.length > 0;
   document.querySelector("#consultAll").disabled = consultation.length === 0;
   drawerItems.innerHTML = consultation.map((item, index) => {
-    const product = products.find((candidate) => candidate.id === item.id);
+    const product = getProduct(item.id);
+    if (!product) return "";
     const colorIndex = product.colors.findIndex((color) => color.name === item.color);
-    return `<div class="drawer-item" data-detail-id="${product.id}" data-detail-color="${item.color}" role="button" tabindex="0" aria-label="Ver detalle de ${product.name}">
-      <img src="${productImage(product, colorIndex)}" alt="${product.name}">
-      <div class="drawer-item__info"><strong>${product.name}</strong><span>${item.color} · ${item.quantity} × ${money(product.price)}</span><small class="detail-link">Ver detalle</small></div>
+    const currentPrice = product.en_oferta && Number.isFinite(product.precio_oferta) ? product.precio_oferta : product.price;
+    return `<div class="drawer-item" data-detail-id="${escapeHTML(product.id)}" data-detail-color="${escapeHTML(item.color)}" role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(product.name)}">
+      <img src="${escapeHTML(productImage(product, colorIndex))}" alt="${escapeHTML(product.name)}" loading="lazy" width="120" height="120">
+      <div class="drawer-item__info"><strong>${escapeHTML(product.name)}</strong><span>${escapeHTML(item.color)} · ${item.quantity} × ${money(currentPrice)}</span><small class="detail-link">Ver detalle</small></div>
       <div class="drawer-item__quantity" aria-label="Cantidad">
-        <button type="button" data-decrease="${index}" aria-label="Restar una unidad de ${product.name}">−</button>
+        <button type="button" data-decrease="${index}" aria-label="Restar una unidad de ${escapeHTML(product.name)}">−</button>
         <span>${item.quantity}</span>
         <button type="button" data-increase="${index}" aria-label="Sumar una unidad de ${product.name}">+</button>
       </div>
-      <button type="button" data-remove="${index}" aria-label="Quitar ${product.name}">×</button>
+      <button type="button" data-remove="${index}" aria-label="Quitar ${escapeHTML(product.name)}">×</button>
     </div>`;
   }).join("");
   drawerItems.querySelectorAll("[data-detail-id]").forEach((item) => {
     const open = () => {
       modalTrigger = item;
       modalTriggerKey = { id: item.dataset.detailId, color: item.dataset.detailColor };
-      openModal(Number(item.dataset.detailId), null, item.dataset.detailColor);
+      openModal(item.dataset.detailId, null, item.dataset.detailColor);
     };
     item.addEventListener("click", (event) => {
       if (event.target.closest("button")) return;
@@ -456,19 +598,21 @@ function renderDrawer() {
 function openDrawer() { drawer.classList.add("is-open"); drawer.setAttribute("aria-hidden", "false"); document.querySelector("#drawerBackdrop").classList.add("is-visible"); }
 function closeDrawer() { drawer.classList.remove("is-open"); drawer.setAttribute("aria-hidden", "true"); document.querySelector("#drawerBackdrop").classList.remove("is-visible"); }
 function openModal(id, offer = null, colorName = null) {
-  modalProduct = products.find((product) => product.id === id);
+  modalProduct = getProduct(id);
+  if (!modalProduct) return;
   modalOpenedFromKeyboard = discountBanner.contains(document.activeElement) && document.activeElement.matches(":focus-visible");
   modalColorIndex = Math.max(0, modalProduct.colors.findIndex((color) => color.name === colorName));
   document.querySelector("#modalCategory").textContent = modalProduct.category;
   document.querySelector("#modalName").textContent = modalProduct.name;
-  document.querySelector("#modalPrice").innerHTML = offer
-    ? `<s>${money(modalProduct.price)}</s><strong>${money(Math.round(modalProduct.price * (1 - offer.discount / 100)))}</strong><span>${offer.discount}% OFF</span>`
+  const offerPrice = modalProduct.en_oferta && Number.isFinite(modalProduct.precio_oferta) ? modalProduct.precio_oferta : null;
+  document.querySelector("#modalPrice").innerHTML = offerPrice
+    ? `<s>${money(modalProduct.price)}</s><strong>${money(offerPrice)}</strong><span>${Math.round((1 - offerPrice / modalProduct.price) * 100)}% OFF</span>`
     : `<strong>${money(modalProduct.price)}</strong>`;
   document.querySelector("#modalDescription").textContent = modalProduct.description;
   document.querySelector("#modalImage").src = productImage(modalProduct, modalColorIndex);
   document.querySelector("#modalImage").alt = modalProduct.name;
-  document.querySelector("#modalStats").innerHTML = modalProduct.details.map((detail) => `<span><strong>${detail.split(" ")[0]}</strong><small>${detail.substring(detail.indexOf(" ") + 1)}</small></span>`).join("");
-  document.querySelector("#modalColors").innerHTML = modalProduct.colors.map((color, index) => `<button class="color-dot ${index === modalColorIndex ? "is-selected" : ""}" type="button" aria-label="Color ${color.name}" data-modal-color="${index}" style="--dot:${color.value}"></button>`).join("");
+  document.querySelector("#modalStats").innerHTML = modalProduct.details.map((detail) => `<span><strong>${escapeHTML(detail.split(" ")[0])}</strong><small>${escapeHTML(detail.substring(detail.indexOf(" ") + 1))}</small></span>`).join("");
+  document.querySelector("#modalColors").innerHTML = modalProduct.colors.map((color, index) => `<button class="color-dot ${index === modalColorIndex ? "is-selected" : ""}" type="button" aria-label="Color ${escapeHTML(color.name)}" data-modal-color="${index}" style="--dot:${escapeHTML(color.value)}"></button>`).join("");
   document.querySelectorAll("[data-modal-color]").forEach((button) => button.addEventListener("click", () => setModalColor(Number(button.dataset.modalColor))));
   updateModalAddLabel();
   productModal.showModal();
@@ -600,7 +744,10 @@ document.querySelector(".bag").addEventListener("click", (event) => { event.prev
 document.querySelector("#closeDrawer").addEventListener("click", closeDrawer);
 document.querySelector("#drawerBackdrop").addEventListener("click", closeDrawer);
 document.querySelector("#consultAll").addEventListener("click", () => {
-  const names = consultation.map((item) => `${products.find((product) => product.id === item.id).name} (${item.color}, cantidad ${item.quantity})`).join(", ");
+  const names = consultation.map((item) => {
+    const product = getProduct(item.id);
+    return product ? `${product.name} (${item.color}, cantidad ${item.quantity})` : null;
+  }).filter(Boolean).join(", ");
   window.open(whatsappUrl(`Hola, quiero consultar por estos productos: ${names}.`), "_blank", "noopener");
 });
 document.querySelector("#closeModal").addEventListener("click", closeModal);
@@ -706,4 +853,18 @@ window.addEventListener("storage", (event) => {
 document.querySelectorAll(".categories, .catalog, .section-heading, .catalog-tools, .benefits, .discounts, .about, .contact, .site-footer, .benefit-card, .discount-card, .about-media, .about-copy, .contact-copy, .contact-form").forEach((element) => element.classList.add("reveal"));
 document.querySelectorAll("[data-count-to]").forEach((element) => element.classList.add("reveal"));
 restoreConsultation();
-renderCategories(); renderFilters(); renderProducts(); renderDrawer(); renderDiscounts(); setupCategoryCarousel(); observeReveals(); setupSectionNavigation(); updateHeader();
+renderCatalogSkeletons();
+renderDrawer();
+setupCategoryCarousel();
+observeReveals();
+setupSectionNavigation();
+updateHeader();
+loadMoreProducts.addEventListener("click", () => {
+  visibleProductCount += PRODUCTS_PAGE_SIZE;
+  renderProducts();
+});
+retryCatalog.addEventListener("click", cargarCatalogo);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Date.now() - lastCatalogLoad > 60000) cargarCatalogo();
+});
+setTimeout(cargarCatalogo, 0);
