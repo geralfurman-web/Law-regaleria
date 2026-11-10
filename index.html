@@ -155,14 +155,14 @@
   </main>
 
   <aside class="consultation-drawer" id="consultationDrawer" aria-hidden="true">
-    <div class="drawer__header"><div><span class="section-kicker">Tu selección</span><h2>Consulta</h2></div><button class="icon-button" id="closeDrawer" type="button" aria-label="Cerrar consulta">×</button></div>
+    <div class="drawer__header"><div><span class="section-kicker">Tu selección</span><h2>Consulta</h2></div><button class="icon-button" id="closeDrawer" type="button" aria-label="Cerrar consulta" data-cerrar>×</button></div>
     <div class="drawer__items" id="consultationItems"></div>
     <div class="drawer__footer"><p id="drawerEmpty">Agregá productos para armar tu consulta.</p><button class="whatsapp-button" id="consultAll" type="button">Consultar todo por WhatsApp</button></div>
   </aside>
-  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <div class="drawer-backdrop" id="drawerBackdrop" data-cerrar-fondo></div>
 
   <dialog class="product-modal" id="productModal">
-    <button class="modal-close icon-button" id="closeModal" type="button" aria-label="Cerrar detalle">×</button>
+    <button class="modal-close icon-button" id="closeModal" type="button" aria-label="Cerrar detalle" data-cerrar>×</button>
     <div class="modal__media"><img id="modalImage" alt=""><button class="modal-arrow modal-arrow--prev" id="modalPrev" type="button" aria-label="Color anterior">‹</button><button class="modal-arrow modal-arrow--next" id="modalNext" type="button" aria-label="Color siguiente">›</button></div>
     <div class="modal__content"><span class="section-kicker" id="modalCategory"></span><h2 id="modalName"></h2><div class="modal-price" id="modalPrice"></div><p class="modal__description" id="modalDescription"></p><div class="color-picker" id="modalColors"></div><div class="modal-stats" id="modalStats"></div><div class="modal-actions"><button class="whatsapp-button" id="modalWhatsapp" type="button">Consultar este</button><button class="outline-button" id="modalAdd" type="button">+ Agregar a consulta</button></div></div>
   </dialog>
@@ -173,6 +173,7 @@
     <div class="footer-socials"><a href="#contacto" aria-label="Instagram">◎</a><a href="#contacto" aria-label="Facebook">f</a><a href="#contacto" aria-label="TikTok">♪</a></div>
   </footer>
 
+  <script src="window-manager.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="script.js"></script>

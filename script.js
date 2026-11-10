@@ -86,7 +86,7 @@ const filters = { category: "Todos", color: "Todos", price: "Todos", search: "" 
 let modalProduct = null;
 let modalColorIndex = 0;
 let categoryDragMoved = false;
-let modalOpenedFromKeyboard = false;
+let updateCategoryArrows = () => {};
 let visibleProductCount = PRODUCTS_PAGE_SIZE;
 let catalogLoading = false;
 let lastCatalogLoad = 0;
@@ -239,7 +239,9 @@ function getProduct(id) { return products.find((item) => String(item.id) === Str
 function renderCategories() {
   categoryGrid.innerHTML = categoryData.map((category) => `
     <button class="category-card reveal" type="button" role="button" tabindex="0" data-categoria="${escapeHTML(category.name)}" data-category="${escapeHTML(category.name)}">
-      <img src="${escapeHTML(category.image || placeholderImage(category.name, "#eef0f1"))}" alt="${escapeHTML(category.name)}" loading="lazy" width="640" height="480">
+      <span class="category-card__image">${category.image
+        ? `<img src="${escapeHTML(category.image)}" alt="${escapeHTML(category.name)}" loading="lazy" width="640" height="640">`
+        : `<span class="category-card__placeholder">${escapeHTML(category.name)}</span>`}</span>
       <strong>${escapeHTML(category.name)}</strong><span><b data-count-to="${products.filter((product) => product.category === category.name).length}">0</b> productos</span>
     </button>`).join("");
   categoryGrid.querySelectorAll(".category-card").forEach((card) => {
@@ -267,6 +269,7 @@ function renderCategories() {
     });
   });
   categoryGrid.querySelectorAll("[data-count-to]").forEach((counter) => counter.classList.add("reveal"));
+  updateCategoryArrows();
 }
 
 function renderFilters() {
@@ -324,9 +327,9 @@ function renderProducts() {
         <div class="product-card__actions"><button class="whatsapp-button quick-whatsapp" type="button" data-product="${product.id}">${product.estado === "agotado" ? "Consultar disponibilidad" : "◔  Consultar este"}</button><button class="outline-button add-consultation" type="button" data-product="${product.id}" ${product.estado === "agotado" ? "disabled" : ""}>+ Agregar a consulta</button></div>
       </div>
     </article>`).join("");
-  productGrid.querySelectorAll(".detail-link").forEach((button) => button.addEventListener("click", () => openModal(button.dataset.detail)));
+  productGrid.querySelectorAll(".detail-link").forEach((button) => button.addEventListener("click", () => openModal(button.dataset.detail, null, null, button)));
   productGrid.querySelectorAll(".product-card__media").forEach((media) => {
-    const open = () => openModal(media.closest(".product-card").dataset.id);
+    const open = () => openModal(media.closest(".product-card").dataset.id, null, null, media);
     media.addEventListener("click", open);
     media.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } });
   });
@@ -408,7 +411,7 @@ function renderDiscountOffer(animate = true) {
   detail.type = "button";
   detail.className = "discount-offer__button";
   detail.textContent = "Ver producto  ›";
-  detail.addEventListener("click", () => openModal(product.id, offer));
+  detail.addEventListener("click", () => openModal(product.id, offer, null, detail));
   content.append(badge, name, description, price, detail);
   const media = document.createElement("div");
   media.className = "discount-offer__media";
@@ -424,8 +427,8 @@ function renderDiscountOffer(animate = true) {
   percent.className = "discount-offer__percent";
   percent.textContent = "%";
   media.append(percent);
-  media.addEventListener("click", () => openModal(product.id, offer));
-  media.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openModal(product.id, offer); } });
+  media.addEventListener("click", () => openModal(product.id, offer, null, media));
+  media.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openModal(product.id, offer, null, media); } });
   discountOffer.append(content, media);
   discountDots.querySelectorAll("button").forEach((dot, index) => dot.classList.toggle("is-active", index === discountIndex));
   const activeDot = discountDots.querySelector(".is-active");
@@ -595,12 +598,14 @@ function renderDrawer() {
     ) || modalTrigger;
   }
 }
-function openDrawer() { drawer.classList.add("is-open"); drawer.setAttribute("aria-hidden", "false"); document.querySelector("#drawerBackdrop").classList.add("is-visible"); }
-function closeDrawer() { drawer.classList.remove("is-open"); drawer.setAttribute("aria-hidden", "true"); document.querySelector("#drawerBackdrop").classList.remove("is-visible"); }
-function openModal(id, offer = null, colorName = null) {
+function openDrawer(opener = document.activeElement) {
+  window.abrirVentana("consultationDrawer", { opener, backdrop: "drawerBackdrop", openClass: "is-open" });
+}
+function closeDrawer() { return window.cerrarVentana("consultationDrawer", { reason: "cancel" }); }
+function openModal(id, offer = null, colorName = null, openerElement = null) {
   modalProduct = getProduct(id);
   if (!modalProduct) return;
-  modalOpenedFromKeyboard = discountBanner.contains(document.activeElement) && document.activeElement.matches(":focus-visible");
+  const opener = modalTrigger || openerElement || document.activeElement;
   modalColorIndex = Math.max(0, modalProduct.colors.findIndex((color) => color.name === colorName));
   document.querySelector("#modalCategory").textContent = modalProduct.category;
   document.querySelector("#modalName").textContent = modalProduct.name;
@@ -615,7 +620,15 @@ function openModal(id, offer = null, colorName = null) {
   document.querySelector("#modalColors").innerHTML = modalProduct.colors.map((color, index) => `<button class="color-dot ${index === modalColorIndex ? "is-selected" : ""}" type="button" aria-label="Color ${escapeHTML(color.name)}" data-modal-color="${index}" style="--dot:${escapeHTML(color.value)}"></button>`).join("");
   document.querySelectorAll("[data-modal-color]").forEach((button) => button.addEventListener("click", () => setModalColor(Number(button.dataset.modalColor))));
   updateModalAddLabel();
-  productModal.showModal();
+  window.abrirVentana("productModal", {
+    opener,
+    getOpener: () => modalTrigger || opener,
+    onClose: () => {
+      modalTrigger = null;
+      modalTriggerKey = null;
+      setTimeout(actualizarReproduccion, 150);
+    }
+  });
   actualizarReproduccion();
   document.querySelector("#closeModal").focus({ preventScroll: true });
 }
@@ -631,15 +644,7 @@ function updateModalAddLabel() {
   document.querySelector("#modalAdd").textContent = selected ? `En tu consulta ✓ (${selected.quantity})` : "+ Agregar a consulta";
 }
 function closeModal() {
-  if (productModal.open) productModal.close();
-  if (modalTrigger && document.body.contains(modalTrigger)) {
-    modalTrigger.focus({ preventScroll: true });
-    if (!modalOpenedFromKeyboard && discountBanner.contains(modalTrigger)) modalTrigger.blur();
-  }
-  if (!modalOpenedFromKeyboard && discountBanner.contains(document.activeElement)) document.activeElement.blur();
-  modalTrigger = null;
-  modalTriggerKey = null;
-  setTimeout(actualizarReproduccion, 150);
+  return window.cerrarVentana("productModal", { reason: "cancel" });
 }
 
 function observeReveals() {
@@ -678,14 +683,25 @@ function setupCategoryCarousel() {
   const carousel = categoryGrid;
   const previous = document.querySelector("#categoryPrev");
   const next = document.querySelector("#categoryNext");
-  const updateArrows = () => {
+  updateCategoryArrows = () => {
+    if (carousel.querySelectorAll(".category-card").length <= 5) {
+      previous.hidden = true;
+      next.hidden = true;
+      return;
+    }
     previous.hidden = carousel.scrollLeft <= 2;
     next.hidden = carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 2;
   };
   const page = () => carousel.clientWidth * .92;
-  previous.addEventListener("click", () => carousel.scrollBy({ left: -page(), behavior: "smooth" }));
-  next.addEventListener("click", () => carousel.scrollBy({ left: page(), behavior: "smooth" }));
-  carousel.addEventListener("scroll", updateArrows, { passive: true });
+  previous.addEventListener("click", () => {
+    carousel.scrollBy({ left: -page(), behavior: "auto" });
+    updateCategoryArrows();
+  });
+  next.addEventListener("click", () => {
+    carousel.scrollBy({ left: page(), behavior: "auto" });
+    updateCategoryArrows();
+  });
+  carousel.addEventListener("scroll", updateCategoryArrows, { passive: true });
   let startX = 0;
   let dragging = false;
   carousel.addEventListener("pointerdown", (event) => {
@@ -707,7 +723,7 @@ function setupCategoryCarousel() {
     event.stopPropagation();
     categoryDragMoved = false;
   }, true);
-  updateArrows();
+  updateCategoryArrows();
 }
 
 function updateHeader() { header.classList.toggle("is-scrolled", window.scrollY > 24); }
@@ -740,9 +756,7 @@ filterToggle.addEventListener("click", () => {
   filterToggle.setAttribute("aria-expanded", String(open));
   filterPanel.setAttribute("aria-hidden", String(!open));
 });
-document.querySelector(".bag").addEventListener("click", (event) => { event.preventDefault(); openDrawer(); });
-document.querySelector("#closeDrawer").addEventListener("click", closeDrawer);
-document.querySelector("#drawerBackdrop").addEventListener("click", closeDrawer);
+document.querySelector(".bag").addEventListener("click", (event) => { event.preventDefault(); openDrawer(event.currentTarget); });
 document.querySelector("#consultAll").addEventListener("click", () => {
   const names = consultation.map((item) => {
     const product = getProduct(item.id);
@@ -750,7 +764,6 @@ document.querySelector("#consultAll").addEventListener("click", () => {
   }).filter(Boolean).join(", ");
   window.open(whatsappUrl(`Hola, quiero consultar por estos productos: ${names}.`), "_blank", "noopener");
 });
-document.querySelector("#closeModal").addEventListener("click", closeModal);
 document.querySelector("#modalPrev").addEventListener("click", () => setModalColor(modalColorIndex - 1));
 document.querySelector("#modalNext").addEventListener("click", () => setModalColor(modalColorIndex + 1));
 document.querySelector("#modalWhatsapp").addEventListener("click", () => contactProduct(modalProduct.id, modalProduct.colors[modalColorIndex].name));
@@ -758,7 +771,6 @@ document.querySelector("#modalAdd").addEventListener("click", () => {
   addToConsultation(modalProduct.id, modalProduct.colors[modalColorIndex].name);
   updateModalAddLabel();
 });
-productModal.addEventListener("click", (event) => { if (event.target === productModal) closeModal(); });
 document.querySelector("#discountPrev").addEventListener("click", (event) => { event.preventDefault(); showDiscount(discountIndex - 1); });
 document.querySelector("#discountNext").addEventListener("click", (event) => { event.preventDefault(); showDiscount(discountIndex + 1); });
 document.addEventListener("visibilitychange", () => {
@@ -807,6 +819,7 @@ contactForm.addEventListener("submit", (event) => {
   window.open(whatsappUrl(`Hola, soy ${name} (${email}). ${message}`), "_blank", "noopener");
 });
 document.addEventListener("click", (event) => {
+  if (mainNav.classList.contains("is-open") && !mainNav.contains(event.target) && !menuToggle.contains(event.target)) closeMenu();
   if (filterPanel.classList.contains("is-open") && !filterPanel.contains(event.target) && !filterToggle.contains(event.target)) {
     filterPanel.classList.remove("is-open");
     filterToggle.setAttribute("aria-expanded", "false");
@@ -828,11 +841,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (event.key === "Escape") {
-    if (productModal.open || modalTrigger) {
-      closeModal();
-      return;
-    }
-    if (drawer.classList.contains("is-open")) closeDrawer();
+    if (mainNav.classList.contains("is-open")) closeMenu();
     filterPanel.classList.remove("is-open");
     filterToggle.setAttribute("aria-expanded", "false");
     filterPanel.setAttribute("aria-hidden", "true");

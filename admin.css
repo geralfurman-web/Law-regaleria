@@ -147,3 +147,20 @@ dialog.modal::backdrop{background:#101b2a80;backdrop-filter:blur(3px)}
   .product-card>.product-actions{grid-column:-2;grid-row:1}
 }
 @keyframes modal-rise{from{transform:translateY(24px);opacity:.7}to{transform:translateY(0);opacity:1}}
+body.modal-open{overflow:hidden}
+.product-menu-backdrop{position:fixed;z-index:40;inset:0;background:transparent;opacity:0;pointer-events:none;transition:opacity .2s ease}
+.product-menu-backdrop.is-visible{opacity:0;pointer-events:none}
+.product-menu{position:fixed;z-index:41;display:none;min-width:11rem;padding:.35rem;border:1px solid #e5ebec;border-radius:1rem;background:#fff;box-shadow:0 12px 32px #101b2a2b}
+.product-menu.is-open{display:grid}
+.product-menu__item,.product-menu__close{min-height:44px;padding:0 .8rem;border:0;border-radius:.65rem;background:transparent;color:var(--dark);text-align:left;font-size:.78rem;font-weight:700}
+.product-menu__item:hover,.product-menu__item:focus-visible,.product-menu__close:hover{background:var(--gray)}
+.product-menu__item.is-danger{color:var(--red)}
+.product-menu__close{display:none}
+@media(max-width:600px){
+  .product-menu-backdrop{z-index:50;background:#101b2a66}
+  .product-menu-backdrop.is-visible{opacity:1;pointer-events:auto}
+  .product-menu{position:fixed;z-index:51;right:0;bottom:0;left:0;display:grid;gap:6px;min-width:0;padding:16px 16px max(16px,env(safe-area-inset-bottom));border-radius:24px 24px 0 0;visibility:hidden;pointer-events:none;transform:translateY(105%);transition:transform .25s var(--ease),visibility .25s}
+  .product-menu.is-open{visibility:visible;pointer-events:auto;transform:translateY(0)}
+  .product-menu__item,.product-menu__close{min-height:52px;padding:0 16px;font-size:.9rem}
+  .product-menu__close{display:block;border:1px solid #dfe5e6;background:#fff;text-align:center}
+}

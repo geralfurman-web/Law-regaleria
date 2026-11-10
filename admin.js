@@ -35,7 +35,6 @@ const editorFeedback = $("#editorFeedback");
 const productList = $("#productList");
 const editorDialog = $("#editorDialog");
 const confirmDialog = $("#confirmDialog");
-const modalData = new WeakMap();
 
 function message(element, text, error = false) {
   element.textContent = text;
@@ -59,59 +58,26 @@ function showFieldError(input, text) {
   input.focus();
 }
 function openModal(dialog, options = {}) {
-  const opener = options.opener || document.activeElement;
-  modalData.set(dialog, { opener, dirty: options.dirty || (() => false), discard: options.discard || (() => {}), onClose: options.onClose || (() => {}) });
-  if (!dialog.open) dialog.showModal();
-  document.body.classList.add("modal-open");
+  window.abrirVentana(dialog.id, {
+    opener: options.opener,
+    dirty: options.dirty,
+    confirmDirty: options.dirty ? () => askConfirmation("Hay cambios sin guardar. ¿Cerrar igualmente?") : null,
+    reset: () => {
+      if (options.discard) options.discard();
+      else dialog.querySelectorAll("form").forEach((form) => form.reset());
+      dialog.querySelectorAll("form").forEach(clearFieldErrors);
+    },
+    onClose: options.onClose
+  });
   setTimeout(() => {
     if (!dialog.open) return;
     const firstField = dialog.querySelector("input:not([type=hidden]):not([type=file]),select,textarea");
     (firstField || dialog.querySelector("button"))?.focus();
   }, 0);
 }
-async function closeModal(dialog, returnValue = "", force = false) {
-  if (!dialog.open) return true;
-  const data = modalData.get(dialog);
-  const dirty = data?.dirty();
-  if (!force && dirty) {
-    const confirmed = await askConfirmation("Hay cambios sin guardar. ¿Cerrar igualmente?");
-    if (!confirmed) return false;
-  }
-  if (data && (returnValue === "cancel" || (dirty && !force))) data.discard();
-  dialog.close(returnValue);
-  if (![...document.querySelectorAll("dialog.modal")].some((item) => item.open)) document.body.classList.remove("modal-open");
-  data?.onClose(returnValue);
-  return true;
+function closeModal(dialog, returnValue = "cancel", force = false) {
+  return window.cerrarVentana(dialog.id, { reason: returnValue, force });
 }
-function setupModal(dialog) {
-  dialog.addEventListener("cancel", (event) => {
-    event.preventDefault();
-    closeModal(dialog, "cancel");
-  });
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) closeModal(dialog, "cancel");
-    if (event.target.closest("[data-modal-cancel]")) {
-      event.preventDefault();
-      closeModal(dialog, "cancel");
-    }
-  });
-  dialog.addEventListener("close", () => {
-    const data = modalData.get(dialog);
-    if (data?.opener?.isConnected) data.opener.focus();
-    setTimeout(() => {
-      if (![...document.querySelectorAll("dialog.modal")].some((item) => item.open)) document.body.classList.remove("modal-open");
-    }, 0);
-  });
-}
-document.querySelectorAll("dialog.modal").forEach(setupModal);
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
-  const dialogs = [...document.querySelectorAll("dialog.modal")].filter((dialog) => dialog.open);
-  const topDialog = dialogs[dialogs.length - 1];
-  if (!topDialog) return;
-  event.preventDefault();
-  closeModal(topDialog, "cancel");
-});
 function productId(product) { return String(product.id); }
 function publicImage(product) {
   const color = Array.isArray(product.colores) && product.colores[0];
@@ -309,9 +275,15 @@ function flash(element, text) {
 }
 
 function renderProducts() {
+  const menuFocusId = openProductMenu?.id;
+  closeProductMenu(false);
   const list = visibleProducts();
   productList.replaceChildren();
   list.slice(0, state.page).forEach((product) => productList.append(createProductCard(product)));
+  if (menuFocusId) {
+    const replacement = [...productList.querySelectorAll("[data-menu-btn]")].find((item) => item.dataset.id === menuFocusId);
+    (replacement || $("#searchInput")).focus({ preventScroll: true });
+  }
   $("#bulkBar").hidden = !state.bulkMode;
   $("#selectedCount").textContent = state.selected.size;
   $("#moreButton").hidden = list.length <= state.page;
@@ -398,11 +370,11 @@ function createProductCard(product) {
   actions.className = "product-actions";
   const menuButton = button("⋯");
   menuButton.setAttribute("aria-label", `Acciones de ${product.nombre}`);
-  const wrap = document.createElement("div");
-  wrap.className = "menu-wrap";
-  wrap.append(menuButton);
-  menuButton.addEventListener("click", () => showMenu(wrap, product));
-  actions.append(wrap);
+  menuButton.dataset.menuBtn = "";
+  menuButton.dataset.id = productId(product);
+  menuButton.setAttribute("aria-haspopup", "menu");
+  menuButton.setAttribute("aria-expanded", "false");
+  actions.append(menuButton);
   const pressTimer = { id: null };
   card.addEventListener("pointerdown", (event) => {
     if (state.bulkMode || event.target.closest("input,button")) return;
@@ -427,17 +399,144 @@ function toggle(label, active, action) {
   control.addEventListener("click", action);
   return control;
 }
-function showMenu(wrapper, product) {
-  document.querySelectorAll(".menu-popover").forEach((menu) => menu.remove());
-  const menu = document.createElement("div");
-  menu.className = "menu-popover";
-  [["Editar", () => openEditor(product)], ["Destacar arriba", () => featureProduct(product)], ["Duplicar", () => duplicateProduct(product)], ["Eliminar", () => removeProduct(product)]].forEach(([label, action]) => {
-    const item = button(label, "");
-    item.addEventListener("click", () => { menu.remove(); action(); });
+let openProductMenu = null;
+function ensureProductMenu() {
+  let backdrop = $("#productMenuBackdrop");
+  let menu = $("#productActionMenu");
+  if (!backdrop) {
+    backdrop = document.createElement("div");
+    backdrop.id = "productMenuBackdrop";
+    backdrop.className = "product-menu-backdrop";
+    backdrop.setAttribute("aria-hidden", "true");
+    document.body.append(backdrop);
+  }
+  if (!menu) {
+    menu = document.createElement("div");
+    menu.id = "productActionMenu";
+    menu.className = "product-menu";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", "Acciones del producto");
+    menu.setAttribute("aria-hidden", "true");
+    document.body.append(menu);
+  }
+  return { menu, backdrop };
+}
+function closeProductMenu(restoreFocus = true) {
+  if (!openProductMenu) return;
+  const { button: opener, menu, backdrop } = openProductMenu;
+  opener.setAttribute("aria-expanded", "false");
+  menu.classList.remove("is-open");
+  menu.setAttribute("aria-hidden", "true");
+  backdrop.classList.remove("is-visible");
+  backdrop.setAttribute("aria-hidden", "true");
+  openProductMenu = null;
+  if (restoreFocus && opener.isConnected) opener.focus({ preventScroll: true });
+}
+function positionProductMenu(opener, menu) {
+  if (window.matchMedia("(max-width: 600px)").matches) {
+    menu.style.top = "";
+    menu.style.left = "";
+    return;
+  }
+  const rect = opener.getBoundingClientRect();
+  const menuRect = menu.getBoundingClientRect();
+  const gap = 8;
+  const top = rect.bottom + menuRect.height + gap <= window.innerHeight
+    ? rect.bottom + gap
+    : Math.max(gap, rect.top - menuRect.height - gap);
+  menu.style.top = `${top}px`;
+  menu.style.left = `${Math.max(gap, Math.min(window.innerWidth - menuRect.width - gap, rect.right - menuRect.width))}px`;
+}
+function openProductActions(opener) {
+  const { menu, backdrop } = ensureProductMenu();
+  if (openProductMenu?.button === opener) {
+    closeProductMenu();
+    return;
+  }
+  closeProductMenu(false);
+  const id = opener.dataset.id;
+  const product = state.products.find((item) => productId(item) === id);
+  if (!product) return;
+  menu.replaceChildren();
+  const actions = [
+    ["edit", "Editar"],
+    ["feature", "Destacar arriba"],
+    ["duplicate", "Duplicar"],
+    ["delete", "Eliminar"]
+  ];
+  actions.forEach(([action, label]) => {
+    const item = button(label, `product-menu__item${action === "delete" ? " is-danger" : ""}`);
+    item.dataset.productMenuAction = action;
+    item.dataset.id = id;
+    item.setAttribute("role", "menuitem");
     menu.append(item);
   });
-  wrapper.append(menu);
+  const closeItem = button("Cerrar", "product-menu__close");
+  closeItem.dataset.productMenuAction = "close";
+  closeItem.setAttribute("role", "menuitem");
+  menu.append(closeItem);
+  openProductMenu = { button: opener, id, menu, backdrop };
+  opener.setAttribute("aria-expanded", "true");
+  menu.classList.add("is-open");
+  menu.setAttribute("aria-hidden", "false");
+  backdrop.classList.add("is-visible");
+  backdrop.setAttribute("aria-hidden", "false");
+  positionProductMenu(opener, menu);
+  menu.querySelector('[role="menuitem"]')?.focus({ preventScroll: true });
 }
+document.addEventListener("click", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+  const menuButton = target.closest("[data-menu-btn]");
+  if (menuButton) {
+    event.preventDefault();
+    openProductActions(menuButton);
+    return;
+  }
+  const actionItem = target.closest("[data-product-menu-action]");
+  if (!actionItem || !openProductMenu) return;
+  const { id } = actionItem.dataset;
+  const action = actionItem.dataset.productMenuAction;
+  const product = state.products.find((item) => productId(item) === id);
+  closeProductMenu();
+  if (!product || action === "close") return;
+  if (action === "edit") openEditor(product);
+  else if (action === "feature") featureProduct(product);
+  else if (action === "duplicate") duplicateProduct(product);
+  else if (action === "delete") removeProduct(product);
+});
+document.addEventListener("pointerdown", (event) => {
+  if (!openProductMenu) return;
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target || target.closest("[data-menu-btn]") || target.closest("#productActionMenu")) return;
+  closeProductMenu();
+});
+document.addEventListener("keydown", (event) => {
+  if (!openProductMenu) return;
+  const items = [...openProductMenu.menu.querySelectorAll('[role="menuitem"]')];
+  const index = items.indexOf(document.activeElement);
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeProductMenu();
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    const nextIndex = index < 0
+      ? (direction > 0 ? 0 : items.length - 1)
+      : (index + direction + items.length) % items.length;
+    items[nextIndex]?.focus();
+  } else if (event.key === "Home") {
+    event.preventDefault();
+    items[0]?.focus();
+  } else if (event.key === "End") {
+    event.preventDefault();
+    items[items.length - 1]?.focus();
+  }
+});
+window.addEventListener("scroll", (event) => {
+  if (openProductMenu && !(event.target instanceof Element && event.target.closest("#productActionMenu"))) closeProductMenu();
+}, true);
+window.addEventListener("resize", () => closeProductMenu());
 
 async function updateProduct(product, changes) {
   const previous = { ...product };
@@ -906,6 +1005,7 @@ function openCategoryEditor(category) {
       if (state.categoryPreviewUrl) URL.revokeObjectURL(state.categoryPreviewUrl);
       state.categoryPreviewUrl = null;
       $("#categoryForm").reset();
+      $("#categoryImageName").textContent = "Ninguna imagen elegida";
       preview.hidden = true;
     }
   });
@@ -1003,10 +1103,12 @@ function askConfirmation(text) {
     $("#confirmTitle").textContent = "¿Descartar cambios?";
     $("#confirmAction").textContent = "Descartar";
     $("#confirmAction").className = "primary-button";
+    $("#confirmDialog [data-cerrar].btn-cancelar").textContent = "Seguir editando";
   } else {
     $("#confirmTitle").textContent = "¿Eliminar producto?";
     $("#confirmAction").textContent = "Eliminar";
     $("#confirmAction").className = "danger-button";
+    $("#confirmDialog [data-cerrar].btn-cancelar").textContent = "Cancelar";
   }
   $("#confirmText").textContent = text;
   return new Promise((resolve) => openModal(confirmDialog, { onClose: (value) => resolve(value === "confirm") }));
