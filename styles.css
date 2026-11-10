@@ -616,3 +616,78 @@ button { font: inherit; }
     min-height: 0;
   }
 }
+
+.theme-toggle {
+  display: inline-grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(16,27,42,.16);
+  border-radius: 50%;
+  background: var(--color-white);
+  color: var(--color-dark);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.theme-toggle:focus-visible { outline: 2px solid var(--color-teal); outline-offset: 3px; }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-dark: #edf2f4;
+  --color-gray: #151c24;
+  --color-muted: #aab6bd;
+  --color-white: #ffffff;
+  --surface: #202a35;
+  --surface-soft: #1a232c;
+  --surface-border: #394753;
+}
+:root[data-theme="dark"] body { background-image: none; }
+:root[data-theme="dark"] .header__inner,
+:root[data-theme="dark"] .main-nav { border-color: var(--surface-border); background: rgba(32,42,53,.96); }
+:root[data-theme="dark"] .hero__veil { background: linear-gradient(90deg, rgba(16,27,42,.76) 0%, rgba(16,27,42,.28) 48%, transparent 68%); }
+:root[data-theme="dark"] .section-shell { background: var(--surface); }
+:root[data-theme="dark"] .section-shell--soft,
+:root[data-theme="dark"] .placeholder-section--soft { background: var(--surface-soft); }
+:root[data-theme="dark"] .placeholder-section:not(.placeholder-section--soft) { background: var(--surface); }
+:root[data-theme="dark"] .catalog,
+:root[data-theme="dark"] .discount-card { background: #18212a; }
+:root[data-theme="dark"] .categories,
+:root[data-theme="dark"] .discounts,
+:root[data-theme="dark"] .filter-panel,
+:root[data-theme="dark"] .benefit-card,
+:root[data-theme="dark"] .contact-form,
+:root[data-theme="dark"] .discount-offer__button,
+:root[data-theme="dark"] .consultation-drawer,
+:root[data-theme="dark"] .product-modal { border-color: var(--surface-border); background-color: var(--surface); color: var(--color-dark); }
+:root[data-theme="dark"] .filter-panel { border: 1px solid var(--surface-border); }
+:root[data-theme="dark"] .search-box input,
+:root[data-theme="dark"] .contact-form input,
+:root[data-theme="dark"] .contact-form textarea,
+:root[data-theme="dark"] .drawer-item__quantity button,
+:root[data-theme="dark"] .discount-controls .carousel-arrow { border-color: var(--surface-border); background: #18212a; color: var(--color-dark); }
+:root[data-theme="dark"] .category-card__image,
+:root[data-theme="dark"] .product-card__media,
+:root[data-theme="dark"] .modal__media,
+:root[data-theme="dark"] .icon-button { background-color: #18212a; }
+:root[data-theme="dark"] .chip,
+:root[data-theme="dark"] .outline-button { border-color: var(--surface-border); background: var(--surface); color: var(--color-dark); }
+:root[data-theme="dark"] .chip.is-active { background: var(--color-dark); color: #151c24; }
+:root[data-theme="dark"] .chip small { background: #394753; }
+:root[data-theme="dark"] .product-card.is-sold-out { background: #252d33; }
+:root[data-theme="dark"] .product-card.is-sold-out .product-card__body,
+:root[data-theme="dark"] .product-card.is-sold-out .product-card__body h3,
+:root[data-theme="dark"] .product-card.is-sold-out .product-card__body .product-details,
+:root[data-theme="dark"] .product-card.is-sold-out .product-card__body .product-card__meta strong,
+:root[data-theme="dark"] .product-card.is-sold-out .detail-link { color: #a0aaaf; }
+:root[data-theme="dark"] .product-card.is-sold-out .product-card__actions .whatsapp-button,
+:root[data-theme="dark"] .product-card.is-sold-out .product-card__actions .outline-button { border-color: #515c62; background: #353f45; color: #d1d8db; }
+:root[data-theme="dark"] .drawer__header,
+:root[data-theme="dark"] .drawer-item,
+:root[data-theme="dark"] .modal-stats { border-color: var(--surface-border); }
+:root[data-theme="dark"] .site-footer { background: #101820; color: #edf2f4; }
+:root[data-theme="dark"] .theme-toggle { border-color: var(--surface-border); background: var(--surface); }
+@media (max-width: 480px) {
+  .theme-toggle { width: 2.25rem; height: 2.25rem; }
+}

@@ -20,6 +20,7 @@
   <main class="admin-shell">
     <section class="auth-card" id="authView" aria-labelledby="loginTitle">
       <a class="brand" href="index.html" aria-label="Volver a la tienda">Law<span>®</span></a>
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Activar modo oscuro" title="Activar modo oscuro" aria-pressed="false"><span aria-hidden="true">☾</span></button>
       <h1 id="loginTitle">Panel del dueño</h1>
       <p>Ingresá para actualizar tu catálogo.</p>
       <form id="loginForm" novalidate>
@@ -33,7 +34,7 @@
     <section class="panel" id="adminView" hidden>
       <header class="topbar">
         <div><span class="eyebrow">CATÁLOGO</span><h1>Hola, dueña</h1></div>
-        <div class="topbar-actions"><button class="secondary-button" id="selectionButton" type="button">Seleccionar</button><button class="secondary-button" id="logoutButton" type="button">Salir</button></div>
+        <div class="topbar-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Activar modo oscuro" title="Activar modo oscuro" aria-pressed="false"><span aria-hidden="true">☾</span></button><button class="secondary-button" id="selectionButton" type="button">Seleccionar</button><button class="secondary-button" id="logoutButton" type="button">Salir</button></div>
       </header>
 
       <div class="stats" id="stats" aria-label="Filtros rápidos"></div>
@@ -121,6 +122,7 @@
     <form id="moveCategoryForm" class="modal-cuerpo" novalidate><header class="modal-encabezado"><h2 id="moveCategoryTitle">Mover productos</h2><button class="close-button" type="button" aria-label="Cerrar" data-cerrar>×</button></header><p>Elegí una categoría o dejá sin categoría.</p><label class="campo">Categoría<select id="moveCategoryValue"></select></label><div class="dialog-actions modal-pie"><button class="secondary-button btn-cancelar" type="button" data-cerrar>Cancelar</button><button class="primary-button" type="submit">Continuar</button></div></form>
   </dialog>
 
+  <script src="theme.js"></script>
   <script src="window-manager.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
