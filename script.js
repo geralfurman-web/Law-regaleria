@@ -320,7 +320,7 @@ function renderProducts() {
   const visible = list.slice(0, visibleProductCount);
   loadMoreProducts.hidden = visible.length >= list.length;
   productGrid.innerHTML = visible.map((product) => `
-    <article class="product-card reveal" data-id="${product.id}">
+    <article class="product-card reveal${product.estado === "agotado" ? " is-sold-out" : ""}" data-id="${product.id}">
       <div class="product-card__media" role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(product.name)}"><img src="${escapeHTML(productImage(product))}" alt="${escapeHTML(product.name)}" loading="lazy" width="640" height="480">${product.estado === "agotado" ? '<span class="stock-badge">Agotado</span>' : ""}</div>
       <div class="product-card__body"><h3>${escapeHTML(product.name)}</h3><p class="product-details">${escapeHTML(product.details.join(" · "))}</p><button class="detail-link" type="button" data-detail="${product.id}">Ver detalle</button>
         <div class="product-card__meta"><div class="color-dots">${product.colors.map((color, index) => `<button class="color-dot ${index === 0 ? "is-selected" : ""}" type="button" title="${escapeHTML(color.name)}" aria-label="Color ${escapeHTML(color.name)}" data-color="${escapeHTML(color.name)}" data-product="${product.id}" style="--dot:${escapeHTML(color.value)}"></button>`).join("")}</div><strong>${product.en_oferta && Number.isFinite(product.precio_oferta) ? `<s>${money(product.price)}</s> ${money(product.precio_oferta)}` : money(product.price)}</strong></div>

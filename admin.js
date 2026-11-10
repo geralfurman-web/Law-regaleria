@@ -875,7 +875,8 @@ async function saveProduct(event) {
   draft.stock = Math.max(0, Math.round(Number($("#productStock").value) || 0));
   draft.categoria_id = $("#productCategory").value || null;
   draft.precio_oferta = $("#productOfferPrice").value ? Number($("#productOfferPrice").value) : null;
-  draft.en_oferta = $("#productOffer").checked;
+  const enOferta = $("#productOffer").checked;
+  draft.en_oferta = enOferta;
   draft.estado = draft.stock === 0 && draft.estado !== "oculto" ? "agotado" : $("#productStatus").value;
   draft.orden = Math.round(Number($("#productOrder").value) || 0);
   draft.detalles = $("#productDetails").value.split("|").map((item) => item.trim()).filter(Boolean);
@@ -883,11 +884,12 @@ async function saveProduct(event) {
   if (!draft.nombre) return showFieldError($("#productName"), "Ingresá un nombre.");
   if (!$("#productPrice").value.trim() || !Number.isFinite(draft.precio) || draft.precio < 0) return showFieldError($("#productPrice"), "Ingresá un precio válido.");
   if (!draft.categoria_id) return showFieldError($("#productCategory"), "Elegí una categoría.");
+  if (enOferta && draft.precio_oferta === null) return showFieldError($("#productOfferPrice"), "Ingresá el precio de oferta");
   if (draft.precio_oferta !== null && (draft.precio_oferta < 0 || draft.precio_oferta >= draft.precio)) return showFieldError($("#productOfferPrice"), "Debe ser menor al precio.");
   $("#saveProductButton").disabled = true;
   message(editorFeedback, "Guardando…");
   try {
-    const payload = { nombre: draft.nombre, precio: draft.precio, stock: draft.stock, categoria_id: draft.categoria_id, precio_oferta: draft.precio_oferta, en_oferta: draft.en_oferta, estado: draft.estado, detalles: draft.detalles, descripcion: draft.descripcion, colores: draft.colores, orden: draft.orden };
+    const payload = { nombre: draft.nombre, precio: draft.precio, stock: draft.stock, categoria_id: draft.categoria_id, precio_oferta: draft.precio_oferta, en_oferta: enOferta, estado: draft.estado, detalles: draft.detalles, descripcion: draft.descripcion, colores: draft.colores, orden: draft.orden };
     let saved;
     if (state.editing) {
       const result = await window.db.from("productos").update(payload).eq("id", state.editing.id).select().single();
@@ -932,7 +934,7 @@ async function removeProduct(product) {
 function renderCategoryList() {
   const list = $("#categoryList");
   list.replaceChildren();
-  state.categories.forEach((category, index) => {
+  state.categories.forEach((category) => {
     const row = document.createElement("article");
     row.className = `category-row${category.visible === false ? " is-hidden" : ""}`;
     row.draggable = true;
@@ -946,12 +948,10 @@ function renderCategoryList() {
     info.append(name, count);
     const actions = document.createElement("div");
     actions.className = "category-actions";
-    const up = button("↑", ""); const down = button("↓", ""); const edit = button("✎", ""); const visibility = button(category.visible === false ? "○" : "●", ""); const remove = button("×", "");
-    up.disabled = index === 0; down.disabled = index === state.categories.length - 1;
-    up.setAttribute("aria-label", "Subir categoría"); down.setAttribute("aria-label", "Bajar categoría"); edit.setAttribute("aria-label", "Editar categoría"); visibility.setAttribute("aria-label", "Mostrar u ocultar categoría"); remove.setAttribute("aria-label", "Eliminar categoría");
-    up.addEventListener("click", () => moveCategory(index, -1)); down.addEventListener("click", () => moveCategory(index, 1));
+    const edit = button("✎", ""); const visibility = button(category.visible === false ? "○" : "●", ""); const remove = button("×", "");
+    edit.setAttribute("aria-label", "Editar categoría"); visibility.setAttribute("aria-label", "Mostrar u ocultar categoría"); remove.setAttribute("aria-label", "Eliminar categoría");
     edit.addEventListener("click", () => openCategoryEditor(category)); visibility.addEventListener("click", () => updateCategory(category, { visible: category.visible === false })); remove.addEventListener("click", () => deleteCategory(category));
-    actions.append(up, down, edit, visibility, remove);
+    actions.append(edit, visibility, remove);
     row.append(image, info, actions);
     row.addEventListener("dragstart", (event) => { event.dataTransfer.setData("text/plain", String(category.id)); });
     row.addEventListener("dragover", (event) => event.preventDefault());
@@ -968,12 +968,6 @@ async function saveCategoryOrder() {
     category.orden = index;
     await window.db.from("categorias").update({ orden: index }).eq("id", category.id);
   }
-}
-async function moveCategory(index, direction) {
-  const target = index + direction;
-  if (target < 0 || target >= state.categories.length) return;
-  [state.categories[index], state.categories[target]] = [state.categories[target], state.categories[index]];
-  await saveCategoryOrder(); renderCategoryList(); renderCategories();
 }
 async function updateCategory(category, changes) {
   Object.assign(category, changes);
@@ -1149,6 +1143,7 @@ $("#productForm").addEventListener("submit", saveProduct);
 $("#productOfferPrice").addEventListener("input", (event) => {
   const price = Number($("#productPrice").value);
   const offer = Number(event.target.value);
+  if (event.target.closest(".campo")?.querySelector(".field-error")?.textContent) fieldError(event.target, "");
   $("#productOfferPercent").value = price && offer < price ? Math.round((1 - offer / price) * 100) : "";
 });
 $("#productOfferPercent").addEventListener("input", (event) => {

@@ -1,5 +1,6 @@
 :root {
   --color-teal: #11b5c3;
+  --rojo-agotado: #d92d20;
   --color-dark: #101b2a;
   --color-gray: #eef0f1;
   --color-white: #ffffff;
@@ -205,8 +206,10 @@ button { font: inherit; }
 .chip--color i { width: .65rem; height: .65rem; border-radius: 50%; background: var(--dot); box-shadow: inset 0 0 0 1px rgba(16,27,42,.16); }
 .product-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2.1rem 1.2rem; }
 .product-card { min-width: 0; animation: card-in .45s var(--ease-hero) both; }
+.product-card.is-sold-out { background: #e9ecee; }
 .product-card__media { position: relative; overflow: hidden; aspect-ratio: 1.1; border-radius: 1rem; background: var(--color-gray); }
 .product-card__media img { width: 100%; height: 100%; object-fit: cover; transition: transform .45s var(--ease-hero), opacity .25s ease; }
+.product-card.is-sold-out .product-card__media img { filter: grayscale(1); opacity: .6; }
 .product-card:hover .product-card__media img { transform: scale(1.06); }
 .product-card__body { padding-top: .9rem; }
 .product-card h3 { margin: 0; font-size: .95rem; letter-spacing: -.03em; }
@@ -214,10 +217,18 @@ button { font: inherit; }
 .detail-link { padding: 0; border: 0; border-bottom: 2px solid var(--color-teal); background: transparent; color: var(--color-dark); font-size: .68rem; cursor: pointer; }
 .product-card__meta { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin: .7rem 0 .8rem; }
 .product-card__meta strong { font-size: .9rem; }
+.product-card.is-sold-out .product-card__body { color: #687278; }
+.product-card.is-sold-out .product-card__body h3,
+.product-card.is-sold-out .product-card__body .product-details,
+.product-card.is-sold-out .product-card__body .product-card__meta strong { color: #687278; }
+.product-card.is-sold-out .detail-link { border-color: #9aa3a7; color: #687278; }
+.product-card.is-sold-out .color-dot { filter: grayscale(1); }
 .color-dots, .color-picker { display: flex; align-items: center; gap: .45rem; }
 .color-dot { width: 1.05rem; height: 1.05rem; padding: 0; border: 2px solid transparent; border-radius: 50%; background: var(--dot); box-shadow: inset 0 0 0 1px rgba(16,27,42,.16); cursor: pointer; transition: transform .2s ease, border-color .2s ease; }
 .color-dot.is-selected { border-color: var(--color-dark); outline: 2px solid var(--color-white); transform: scale(1.12); }
 .product-card__actions { display: grid; gap: .45rem; }
+.product-card.is-sold-out .product-card__actions .whatsapp-button,
+.product-card.is-sold-out .product-card__actions .outline-button { border-color: #aeb6ba; background: #d7dcdf; color: #4f585d; }
 .whatsapp-button, .outline-button { display: flex; width: 100%; min-height: 2.45rem; align-items: center; justify-content: center; border-radius: .65rem; font-size: .68rem; font-weight: 700; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }
 .whatsapp-button { border: 1px solid #16a86a; background: #20c874; color: #072d1c; }
 .whatsapp-button:hover, .outline-button:hover { transform: translateY(-2px); box-shadow: 0 7px 16px rgba(16,27,42,.1); }
@@ -371,9 +382,32 @@ button { font: inherit; }
   text-decoration: underline;
 }
 .load-more-products {
-  display: block;
-  margin: 1.5rem auto 0;
+  display: flex;
+  margin: 1.5rem auto;
 }
+#retryCatalog,
+.load-more-products {
+  display: flex;
+  width: fit-content;
+  min-width: 220px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 32px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-teal);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(16,27,42,.12);
+}
+#retryCatalog { margin: 1.5rem auto; }
+#retryCatalog:hover,
+.load-more-products:hover { background: #0e9fae; transform: translateY(-2px); }
+#retryCatalog:focus-visible,
+.load-more-products:focus-visible { outline: 2px solid var(--color-teal); outline-offset: 3px; }
+#retryCatalog:disabled,
+.load-more-products:disabled { opacity: .5; cursor: not-allowed; }
 .stock-badge {
   position: absolute;
   top: 1rem;
@@ -381,9 +415,10 @@ button { font: inherit; }
   z-index: 1;
   padding: .35rem .7rem;
   border-radius: 999px;
-  background: var(--dark);
+  background: var(--rojo-agotado);
   color: #fff;
   font-size: .75rem;
+  font-weight: 800;
 }
 .skeleton-card { pointer-events: none; }
 .skeleton-block, .skeleton-line {

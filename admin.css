@@ -58,10 +58,12 @@ dialog.modal::backdrop{background:#101b2a80;backdrop-filter:blur(3px)}
 .modal-pie .primary-button{background:var(--teal)}
 .confirm-dialog .modal-pie{width:100%}
 .confirm-dialog p{margin:0;color:var(--muted);font-size:.8rem}
-.editor-dialog form{display:grid;grid-template-rows:auto minmax(0,1fr) auto;max-height:90vh;max-height:90dvh;min-height:0}
+dialog.modal.editor-dialog{display:flex;flex-direction:column;overflow:hidden;max-height:90vh;max-height:90dvh}
+.editor-dialog form{display:flex;flex:1;flex-direction:column;min-height:0;max-height:100%;overflow:hidden}
 .editor-header{padding:20px 24px 16px}
+.editor-header,.editor-footer{flex:none}
 .editor-header h2{color:var(--dark);font-size:1.35rem}
-.editor-body{min-height:0;gap:16px;padding:20px 24px;overflow-x:hidden;overflow-y:auto}
+.editor-body{flex:1;min-height:0;gap:16px;padding:20px 24px;overflow-x:hidden;overflow-y:auto}
 .editor-body label,.auth-card label{font-size:.76rem}
 .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .editor-footer{flex-wrap:wrap;padding:16px 24px 20px}
@@ -106,7 +108,7 @@ dialog.modal::backdrop{background:#101b2a80;backdrop-filter:blur(3px)}
 @media(max-width:699px){
   dialog.modal{inset:auto 0 0;width:100vw;max-width:100vw;max-height:90vh;max-height:90dvh;margin:0;border-radius:24px 24px 0 0;animation:modal-rise .24s var(--ease)}
   .modal-cuerpo{padding:24px}
-  .editor-dialog form{max-height:90vh;max-height:90dvh}
+  .editor-dialog form{max-height:100%}
   .editor-body{padding:16px 24px}
   .editor-footer{padding:12px 24px max(16px,env(safe-area-inset-bottom))}
   .modal-pie{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
@@ -131,7 +133,7 @@ dialog.modal::backdrop{background:#101b2a80;backdrop-filter:blur(3px)}
 }
 @media(min-width:700px){
   .editor-dialog{position:fixed;inset:0;width:min(92vw,440px);height:auto;max-height:90dvh;margin:auto;border-radius:24px}
-  .editor-dialog form{max-height:90dvh}
+  .editor-dialog form{max-height:100%}
   .editor-header{padding:20px 24px 16px}
   .editor-body{padding:20px 24px}
   .editor-footer{padding:12px 24px 20px}
