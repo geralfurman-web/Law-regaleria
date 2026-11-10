@@ -22,9 +22,9 @@
       <a class="brand" href="index.html" aria-label="Volver a la tienda">Law<span>®</span></a>
       <h1 id="loginTitle">Panel del dueño</h1>
       <p>Ingresá para actualizar tu catálogo.</p>
-      <form id="loginForm">
-        <label>Email<input id="loginEmail" type="email" autocomplete="email" required></label>
-        <label>Contraseña<div class="password-field"><input id="loginPassword" type="password" autocomplete="current-password" required><button id="togglePassword" type="button" aria-label="Mostrar contraseña">Mostrar</button></div></label>
+      <form id="loginForm" novalidate>
+        <label class="campo">Email<input id="loginEmail" type="email" autocomplete="email" required><small class="field-error" id="loginEmailError"></small></label>
+        <label class="campo">Contraseña<div class="password-field"><input id="loginPassword" type="password" autocomplete="current-password" required><button id="togglePassword" type="button" aria-label="Mostrar contraseña">Mostrar</button></div><small class="field-error" id="loginPasswordError"></small></label>
         <button class="primary-button" type="submit">Ingresar</button>
       </form>
       <p class="feedback" id="loginFeedback" role="alert"></p>
@@ -64,7 +64,7 @@
     <header class="view-header"><div><span class="eyebrow">CUENTA</span><h2>Ajustes</h2></div></header>
     <div class="settings-card">
       <h3>Seguridad</h3>
-      <form id="passwordForm"><label>Nueva contraseña<input id="newPassword" type="password" minlength="6" autocomplete="new-password" required></label><label>Repetir contraseña<input id="repeatPassword" type="password" minlength="6" autocomplete="new-password" required></label><button class="primary-button" type="submit">Cambiar contraseña</button></form>
+      <form id="passwordForm" novalidate><label class="campo">Nueva contraseña<input id="newPassword" type="password" minlength="6" autocomplete="new-password" required><small class="field-error" id="newPasswordError"></small></label><label class="campo">Repetir contraseña<input id="repeatPassword" type="password" minlength="6" autocomplete="new-password" required><small class="field-error" id="repeatPasswordError"></small></label><button class="primary-button" type="submit">Cambiar contraseña</button></form>
       <p class="feedback" id="settingsFeedback" role="status"></p>
     </div>
     <div class="settings-card"><h3>Copias de seguridad</h3><div class="settings-actions"><button class="secondary-button" id="exportJsonButton" type="button">Descargar copia del catálogo</button><button class="secondary-button" id="exportCsvButton" type="button">Exportar a CSV</button></div></div>
@@ -76,40 +76,49 @@
     <div class="bulk-actions"><button type="button" data-bulk="hide">Ocultar</button><button type="button" data-bulk="show">Mostrar</button><button type="button" data-bulk="soldout">Agotar</button><button type="button" data-bulk="category">Categoría</button><button type="button" data-bulk="price">Precio %</button><button type="button" data-bulk="offer">Oferta %</button><button type="button" data-bulk="delete">Eliminar</button></div>
   </section>
 
-  <dialog class="editor-dialog" id="editorDialog" aria-labelledby="editorTitle">
-    <form id="productForm" method="dialog">
-      <header class="editor-header"><div><span class="eyebrow">PRODUCTO</span><h2 id="editorTitle">Nuevo producto</h2></div><button class="close-button" id="closeEditor" type="button" aria-label="Cerrar">×</button></header>
-      <div class="editor-body">
-        <label>Nombre<input id="productName" type="text" required maxlength="120"></label>
-        <div class="form-grid"><label>Precio<input id="productPrice" type="number" inputmode="decimal" min="0" step="1" required></label><label>Stock<input id="productStock" type="number" inputmode="numeric" min="0" step="1"></label></div>
-        <label>Categoría<select id="productCategory" required></select></label>
+  <dialog class="modal editor-dialog" id="editorDialog" aria-labelledby="editorTitle">
+    <form id="productForm" novalidate>
+      <header class="editor-header"><div><span class="eyebrow">PRODUCTO</span><h2 id="editorTitle">Nuevo producto</h2></div><button class="close-button" id="closeEditor" type="button" aria-label="Cerrar" data-modal-cancel>×</button></header>
+      <div class="editor-body modal-cuerpo">
+        <label class="campo">Nombre<input id="productName" type="text" required maxlength="120"><small class="field-error" id="productNameError"></small></label>
+        <div class="form-grid"><label class="campo">Precio<input id="productPrice" type="number" inputmode="decimal" min="0" step="1" required><small class="field-error" id="productPriceError"></small></label><label class="campo">Stock<input id="productStock" type="number" inputmode="numeric" min="0" step="1"></label></div>
+        <label class="campo">Categoría<select id="productCategory" required></select><small class="field-error" id="productCategoryError"></small></label>
         <details class="more-options"><summary>Más opciones</summary>
           <div class="details-body">
-            <div class="form-grid"><label>Precio de oferta<input id="productOfferPrice" type="number" inputmode="decimal" min="0" step="1"></label><label>Descuento %<input id="productOfferPercent" type="number" inputmode="decimal" min="0" max="100" step="1"></label></div>
+            <div class="form-grid"><label class="campo">Precio de oferta<input id="productOfferPrice" type="number" inputmode="decimal" min="0" step="1"><small class="field-error"></small></label><label class="campo">Descuento %<input id="productOfferPercent" type="number" inputmode="decimal" min="0" max="100" step="1"><small class="field-error"></small></label></div>
             <label class="switch-row"><span>En oferta</span><input id="productOffer" type="checkbox"><i></i></label>
-            <div class="form-grid"><label>Estado<select id="productStatus"><option value="activo">Activo</option><option value="agotado">Agotado</option><option value="oculto">Oculto</option></select></label><label>Orden<input id="productOrder" type="number" inputmode="numeric" step="1"></label></div>
-            <label>Detalles <span class="hint">(separados con |)</span><input id="productDetails" type="text"></label>
-            <label>Descripción<textarea id="productDescription" rows="3"></textarea></label>
+            <div class="form-grid"><label class="campo">Estado<select id="productStatus"><option value="activo">Activo</option><option value="agotado">Agotado</option><option value="oculto">Oculto</option></select></label><label class="campo">Orden<input id="productOrder" type="number" inputmode="numeric" step="1"></label></div>
+            <label class="campo">Detalles <span class="hint">(separados con |)</span><input id="productDetails" type="text"></label>
+            <label class="campo">Descripción<textarea id="productDescription" rows="3"></textarea></label>
           </div>
         </details>
         <section class="colors-section"><div class="section-title"><h3>Colores</h3><button class="secondary-button small-button" id="addColorButton" type="button">+ Agregar color</button></div><div id="colorsList"></div></section>
       </div>
-      <footer class="editor-footer"><p class="feedback" id="editorFeedback" role="status"></p><button class="primary-button" id="saveProductButton" type="submit">Guardar producto</button></footer>
+      <footer class="editor-footer modal-pie"><p class="feedback" id="editorFeedback" role="status"></p><button class="secondary-button" type="button" data-modal-cancel>Cancelar</button><button class="primary-button" id="saveProductButton" type="submit">Guardar producto</button></footer>
     </form>
   </dialog>
 
-  <dialog class="confirm-dialog" id="confirmDialog">
-    <form method="dialog"><h2 id="confirmTitle">¿Eliminar producto?</h2><p id="confirmText">Esta acción no se puede deshacer.</p><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button class="danger-button" id="confirmAction" value="confirm">Eliminar</button></div></form>
+  <dialog class="modal confirm-dialog" id="confirmDialog" aria-labelledby="confirmTitle">
+    <div class="modal-cuerpo"><header class="modal-encabezado"><h2 id="confirmTitle">¿Eliminar producto?</h2><button class="close-button" type="button" aria-label="Cerrar" data-modal-cancel>×</button></header><p id="confirmText">Esta acción no se puede deshacer.</p><div class="dialog-actions modal-pie"><button class="secondary-button" type="button" data-modal-cancel>Cancelar</button><button class="danger-button" id="confirmAction" type="button">Eliminar</button></div></div>
   </dialog>
 
-  <dialog class="confirm-dialog" id="previewDialog">
-    <form method="dialog"><h2 id="previewTitle">Vista previa</h2><div class="preview-list" id="previewList"></div><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button class="primary-button" id="applyPreview" value="confirm">Aplicar</button></div></form>
+  <dialog class="modal confirm-dialog" id="previewDialog" aria-labelledby="previewTitle">
+    <div class="modal-cuerpo"><header class="modal-encabezado"><h2 id="previewTitle">Vista previa</h2><button class="close-button" type="button" aria-label="Cerrar" data-modal-cancel>×</button></header><div class="preview-list" id="previewList"></div><div class="dialog-actions modal-pie"><button class="secondary-button" type="button" data-modal-cancel>Cancelar</button><button class="primary-button" id="applyPreview" type="button">Aplicar</button></div></div>
   </dialog>
-  <dialog class="confirm-dialog" id="bulkInputDialog">
-    <form id="bulkInputForm" method="dialog"><h2 id="bulkInputTitle">Cambio masivo</h2><label id="bulkInputLabel">Valor<input id="bulkInputValue" type="number" inputmode="decimal" step="1" required></label><label id="bulkRoundingLabel">Redondear<select id="bulkRounding"><option value="none">Sin redondear</option><option value="10">A la decena</option><option value="100">A la centena</option></select></label><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button class="primary-button" type="submit">Continuar</button></div></form>
+  <dialog class="modal confirm-dialog" id="bulkInputDialog" aria-labelledby="bulkInputTitle">
+    <form id="bulkInputForm" class="modal-cuerpo" novalidate><header class="modal-encabezado"><h2 id="bulkInputTitle">Cambio masivo</h2><button class="close-button" type="button" aria-label="Cerrar" data-modal-cancel>×</button></header><label class="campo" id="bulkInputLabel">Valor<span class="suffix-field"><input id="bulkInputValue" type="number" inputmode="decimal" step="1" required><span>%</span></span><small class="field-error" id="bulkInputError"></small><small class="hint" id="bulkInputHint" hidden>Positivo aumenta, negativo reduce</small></label><label class="campo" id="bulkRoundingLabel">Redondear<select id="bulkRounding"><option value="none">Sin redondear</option><option value="10">A la decena</option><option value="100">A la centena</option></select></label><div class="dialog-actions modal-pie"><button class="secondary-button" type="button" data-modal-cancel>Cancelar</button><button class="primary-button" type="submit">Continuar</button></div></form>
   </dialog>
-  <dialog class="confirm-dialog" id="categoryDialog">
-    <form id="categoryForm" method="dialog"><h2 id="categoryDialogTitle">Nueva categoría</h2><label>Nombre<input id="categoryName" type="text" required maxlength="80"></label><label>Imagen<input id="categoryImage" type="file" accept="image/*"></label><div class="dialog-actions"><button class="secondary-button" value="cancel">Cancelar</button><button class="primary-button" type="submit">Guardar</button></div></form>
+  <dialog class="modal confirm-dialog" id="categoryDialog" aria-labelledby="categoryDialogTitle">
+    <form id="categoryForm" class="modal-cuerpo" novalidate><header class="modal-encabezado"><h2 id="categoryDialogTitle">Nueva categoría</h2><button class="close-button" type="button" aria-label="Cerrar" data-modal-cancel>×</button></header><label class="campo">Nombre<input id="categoryName" type="text" required maxlength="80"><small class="field-error" id="categoryNameError"></small></label><div class="campo"><span>Imagen</span><label class="photo-picker" for="categoryImage"><span class="photo-picker-button">▧ Elegir imagen</span><span class="photo-file-name" id="categoryImageName">Ninguna imagen elegida</span><input id="categoryImage" class="sr-only" type="file" accept="image/*"></label><div class="category-image-preview" id="categoryImagePreview" hidden><img alt="Vista previa de la imagen"><button class="icon-button" id="removeCategoryImage" type="button" aria-label="Quitar imagen">×</button></div></div><div class="dialog-actions modal-pie"><button class="secondary-button" type="button" data-modal-cancel>Cancelar</button><button class="primary-button" type="submit">Guardar</button></div></form>
+  </dialog>
+  <dialog class="modal confirm-dialog" id="offerDialog" aria-labelledby="offerTitle">
+    <form id="offerForm" class="modal-cuerpo" novalidate><header class="modal-encabezado"><h2 id="offerTitle">Precio de oferta</h2><button class="close-button" type="button" aria-label="Cerrar" data-modal-cancel>×</button></header><label class="campo">Precio o descuento %<input id="offerValue" type="number" inputmode="decimal" min="0" step="1" required><small class="field-error" id="offerValueError"></small></label><div class="dialog-actions modal-pie"><button class="secondary-button" type="button" data-modal-cancel>Cancelar</button><button class="primary-button" type="submit">Aplicar oferta</button></div></form>
+  </dialog>
+  <dialog class="modal confirm-dialog" id="bulkCategoryDialog" aria-labelledby="bulkCategoryTitle">
+    <form id="bulkCategoryForm" class="modal-cuerpo" novalidate><header class="modal-encabezado"><h2 id="bulkCategoryTitle">Cambiar categoría</h2><button class="close-button" type="button" aria-label="Cerrar" data-modal-cancel>×</button></header><label class="campo">Categoría<select id="bulkCategoryValue" required></select><small class="field-error" id="bulkCategoryError"></small></label><div class="dialog-actions modal-pie"><button class="secondary-button" type="button" data-modal-cancel>Cancelar</button><button class="primary-button" type="submit">Aplicar</button></div></form>
+  </dialog>
+  <dialog class="modal confirm-dialog" id="moveCategoryDialog" aria-labelledby="moveCategoryTitle">
+    <form id="moveCategoryForm" class="modal-cuerpo" novalidate><header class="modal-encabezado"><h2 id="moveCategoryTitle">Mover productos</h2><button class="close-button" type="button" aria-label="Cerrar" data-modal-cancel>×</button></header><p>Elegí una categoría o dejá sin categoría.</p><label class="campo">Categoría<select id="moveCategoryValue"></select></label><div class="dialog-actions modal-pie"><button class="secondary-button" type="button" data-modal-cancel>Cancelar</button><button class="primary-button" type="submit">Continuar</button></div></form>
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

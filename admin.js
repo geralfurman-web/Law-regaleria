@@ -14,6 +14,14 @@ const state = {
   undo: null,
   categoryEditing: null,
   categoryFiles: null,
+  categoryDirty: false,
+  categoryImageRemoved: false,
+  bulkDirty: false,
+  bulkCategoryProducts: [],
+  offerDirty: false,
+  moveCategoryDirty: false,
+  offerProduct: null,
+  moveCategory: null,
   bulkMode: false
 };
 
@@ -27,11 +35,83 @@ const editorFeedback = $("#editorFeedback");
 const productList = $("#productList");
 const editorDialog = $("#editorDialog");
 const confirmDialog = $("#confirmDialog");
+const modalData = new WeakMap();
 
 function message(element, text, error = false) {
   element.textContent = text;
   element.classList.toggle("error", error);
 }
+function fieldError(input, text) {
+  const error = $(`#${input.id}Error`) || input.closest(".campo")?.querySelector(".field-error");
+  if (error) error.textContent = text;
+  input.classList.toggle("field-invalid", Boolean(text));
+  input.setAttribute("aria-invalid", text ? "true" : "false");
+}
+function clearFieldErrors(form) {
+  form.querySelectorAll(".field-error").forEach((error) => { error.textContent = ""; });
+  form.querySelectorAll(".field-invalid").forEach((input) => {
+    input.classList.remove("field-invalid");
+    input.removeAttribute("aria-invalid");
+  });
+}
+function showFieldError(input, text) {
+  fieldError(input, text);
+  input.focus();
+}
+function openModal(dialog, options = {}) {
+  const opener = options.opener || document.activeElement;
+  modalData.set(dialog, { opener, dirty: options.dirty || (() => false), discard: options.discard || (() => {}), onClose: options.onClose || (() => {}) });
+  if (!dialog.open) dialog.showModal();
+  document.body.classList.add("modal-open");
+  setTimeout(() => {
+    if (!dialog.open) return;
+    const firstField = dialog.querySelector("input:not([type=hidden]):not([type=file]),select,textarea");
+    (firstField || dialog.querySelector("button"))?.focus();
+  }, 0);
+}
+async function closeModal(dialog, returnValue = "", force = false) {
+  if (!dialog.open) return true;
+  const data = modalData.get(dialog);
+  const dirty = data?.dirty();
+  if (!force && dirty) {
+    const confirmed = await askConfirmation("Hay cambios sin guardar. ¿Cerrar igualmente?");
+    if (!confirmed) return false;
+  }
+  if (data && (returnValue === "cancel" || (dirty && !force))) data.discard();
+  dialog.close(returnValue);
+  if (![...document.querySelectorAll("dialog.modal")].some((item) => item.open)) document.body.classList.remove("modal-open");
+  data?.onClose(returnValue);
+  return true;
+}
+function setupModal(dialog) {
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeModal(dialog, "cancel");
+  });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) closeModal(dialog, "cancel");
+    if (event.target.closest("[data-modal-cancel]")) {
+      event.preventDefault();
+      closeModal(dialog, "cancel");
+    }
+  });
+  dialog.addEventListener("close", () => {
+    const data = modalData.get(dialog);
+    if (data?.opener?.isConnected) data.opener.focus();
+    setTimeout(() => {
+      if (![...document.querySelectorAll("dialog.modal")].some((item) => item.open)) document.body.classList.remove("modal-open");
+    }, 0);
+  });
+}
+document.querySelectorAll("dialog.modal").forEach(setupModal);
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const dialogs = [...document.querySelectorAll("dialog.modal")].filter((dialog) => dialog.open);
+  const topDialog = dialogs[dialogs.length - 1];
+  if (!topDialog) return;
+  event.preventDefault();
+  closeModal(topDialog, "cancel");
+});
 function productId(product) { return String(product.id); }
 function publicImage(product) {
   const color = Array.isArray(product.colores) && product.colores[0];
@@ -178,7 +258,43 @@ function inlineNumber(value, aria, onSave) {
     input.disabled = true;
     const ok = await onSave(next);
     input.disabled = false;
-    if (ok) { original = input.value; flash(input, "Guardado ✓"); } else input.value = original;
+    if (ok) {
+      original = String(next);
+      input.value = original;
+      flash(input, "Guardado ✓");
+      setTimeout(renderProducts, 1400);
+    } else input.value = original;
+  };
+  input.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); input.blur(); } });
+  input.addEventListener("blur", save);
+  return input;
+}
+function priceInput(value, aria, onSave) {
+  const input = document.createElement("input");
+  input.className = "inline-input";
+  input.type = "text";
+  input.inputMode = "numeric";
+  input.setAttribute("aria-label", aria);
+  const format = (number) => new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(number);
+  let original = String(Math.max(0, Math.round(Number(value) || 0)));
+  input.value = format(Number(original));
+  input.addEventListener("focus", () => {
+    input.value = original;
+    input.select();
+  });
+  const save = async () => {
+    const next = Number(input.value.replace(/\./g, "").replace(",", "."));
+    if (!Number.isFinite(next) || next < 0) { input.value = format(Number(original)); return; }
+    input.value = format(next);
+    if (String(next) === original) return;
+    input.disabled = true;
+    const ok = await onSave(next);
+    input.disabled = false;
+    if (ok) {
+      original = String(next);
+      flash(input, "Guardado ✓");
+      setTimeout(renderProducts, 1400);
+    } else input.value = format(Number(original));
   };
   input.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); input.blur(); } });
   input.addEventListener("blur", save);
@@ -237,7 +353,23 @@ function createProductCard(product) {
   meta.textContent = state.categories.find((category) => String(category.id) === String(product.categoria_id))?.nombre || "Sin categoría";
   const values = document.createElement("div");
   values.className = "product-values";
-  const price = inlineNumber(product.precio, `Precio de ${product.nombre}`, (value) => updateProduct(product, { precio: value }));
+  const priceControl = document.createElement("label");
+  priceControl.className = "price-control";
+  const priceLabel = document.createElement("span");
+  priceLabel.className = "inline-label";
+  priceLabel.textContent = "Precio";
+  const priceWrap = document.createElement("span");
+  priceWrap.className = "price-input-wrap";
+  const currency = document.createElement("span");
+  currency.textContent = "$";
+  const price = priceInput(product.precio, `Precio de ${product.nombre}`, (value) => updateProduct(product, { precio: value }));
+  priceWrap.append(currency, price);
+  priceControl.append(priceLabel, priceWrap);
+  const stockField = document.createElement("label");
+  stockField.className = "stock-field";
+  const stockLabel = document.createElement("span");
+  stockLabel.className = "inline-label";
+  stockLabel.textContent = "Stock";
   const stockControl = document.createElement("div");
   stockControl.className = "stock-control";
   const minus = button("−");
@@ -245,15 +377,22 @@ function createProductCard(product) {
   const plus = button("+");
   minus.setAttribute("aria-label", "Restar stock");
   plus.setAttribute("aria-label", "Sumar stock");
-  minus.addEventListener("click", () => updateStock(product, Math.max(0, Number(product.stock) - 1)));
-  plus.addEventListener("click", () => updateStock(product, Number(product.stock) + 1));
+  minus.addEventListener("click", async () => { await updateStock(product, Math.max(0, Number(product.stock) - 1)); renderProducts(); });
+  plus.addEventListener("click", async () => { await updateStock(product, Number(product.stock) + 1); renderProducts(); });
   stockControl.append(minus, stock, plus);
-  values.append(price, stockControl);
+  stockField.append(stockLabel, stockControl);
+  values.append(priceControl, stockField);
   main.append(name, meta);
   const switches = document.createElement("div");
   switches.className = "quick-switches";
-  switches.append(toggle("Visible", product.estado !== "oculto", () => updateProduct(product, { estado: product.estado === "oculto" ? (Number(product.stock) === 0 ? "agotado" : "activo") : "oculto" })));
-  switches.append(toggle("Agotado", product.estado === "agotado", () => updateStock(product, 0)));
+  switches.append(toggle("Visible", product.estado !== "oculto", async () => {
+    await updateProduct(product, { estado: product.estado === "oculto" ? (Number(product.stock) === 0 ? "agotado" : "activo") : "oculto" });
+    renderProducts();
+  }));
+  switches.append(toggle("Agotado", product.estado === "agotado", async () => {
+    await updateStock(product, 0);
+    renderProducts();
+  }));
   switches.append(toggle("En oferta", Boolean(product.en_oferta), () => toggleOffer(product)));
   const actions = document.createElement("div");
   actions.className = "product-actions";
@@ -310,30 +449,28 @@ async function updateProduct(product, changes) {
     renderProducts();
     return false;
   }
-  if (changes.precio !== undefined) renderProducts();
   renderStats();
   return true;
 }
 async function updateStock(product, value) {
   const stock = Math.max(0, Math.round(Number(value) || 0));
   const estado = stock === 0 ? "agotado" : product.estado === "agotado" ? "activo" : product.estado;
-  const ok = await updateProduct(product, { stock, estado });
-  if (ok) renderProducts();
-  return ok;
+  return updateProduct(product, { stock, estado });
 }
 async function toggleOffer(product) {
   if (!product.en_oferta && (!product.precio_oferta || Number(product.precio_oferta) >= Number(product.precio))) {
-    const value = window.prompt("Precio de oferta o % de descuento", "");
-    if (value === null) return;
-    const number = Number(value);
-    if (!Number.isFinite(number) || number < 0) { message(catalogFeedback, "Ingresá un valor válido.", true); return; }
-    const precio_oferta = number < 100 ? Math.round(Number(product.precio) * (1 - number / 100)) : number;
-    if (precio_oferta >= Number(product.precio)) { message(catalogFeedback, "El precio de oferta debe ser menor al precio.", true); return; }
-    await updateProduct(product, { precio_oferta, en_oferta: true });
+    state.offerProduct = product;
+    state.offerDirty = false;
+    $("#offerValue").value = "";
+    clearFieldErrors($("#offerForm"));
+    openModal($("#offerDialog"), {
+      dirty: () => state.offerDirty,
+      discard: () => { state.offerDirty = false; $("#offerForm").reset(); }
+    });
   } else {
     await updateProduct(product, { en_oferta: !product.en_oferta });
+    renderProducts();
   }
-  renderProducts();
 }
 async function featureProduct(product) {
   const minimum = Math.min(0, ...state.products.map((item) => Number(item.orden) || 0));
@@ -413,9 +550,21 @@ function openBulkInput(type) {
   const products = selectedProducts();
   if (!products.length) return message(catalogFeedback, "Elegí al menos un producto.", true);
   if (type === "category") {
-    const options = state.categories.map((category) => `${category.id}: ${category.nombre}`).join("\n");
-    const value = window.prompt(`Ingresá el ID de la categoría:\n${options}`, state.categories[0]?.id || "");
-    if (value !== null) updateBulkProducts(products, () => ({ categoria_id: value }), "Categoría actualizada.");
+    const select = $("#bulkCategoryValue");
+    select.replaceChildren();
+    state.categories.forEach((category) => {
+      const option = document.createElement("option");
+      option.value = category.id;
+      option.textContent = category.nombre;
+      select.append(option);
+    });
+    state.bulkCategoryProducts = products;
+    state.bulkDirty = false;
+    clearFieldErrors($("#bulkCategoryForm"));
+    openModal($("#bulkCategoryDialog"), {
+      dirty: () => state.bulkDirty,
+      discard: () => { state.bulkDirty = false; $("#bulkCategoryForm").reset(); }
+    });
     return;
   }
   if (type === "delete") {
@@ -434,20 +583,30 @@ function openBulkInput(type) {
     return;
   }
   $("#bulkInputTitle").textContent = type === "price" ? "Ajustar precios" : "Poner en oferta";
-  $("#bulkInputLabel").firstChild.textContent = type === "price" ? "Porcentaje (positivo aumenta, negativo reduce)" : "Porcentaje de descuento";
+  $("#bulkInputLabel").firstChild.textContent = type === "price" ? "Porcentaje" : "Porcentaje de descuento";
   $("#bulkInputValue").value = "";
   $("#bulkInputValue").min = type === "price" ? "-100" : "0";
   $("#bulkRoundingLabel").hidden = type !== "price";
+  $("#bulkInputHint").hidden = type !== "price";
   $("#bulkInputForm").dataset.type = type;
-  $("#bulkInputDialog").showModal();
+  state.bulkDirty = false;
+  clearFieldErrors($("#bulkInputForm"));
+  openModal($("#bulkInputDialog"), {
+    dirty: () => state.bulkDirty,
+    discard: () => { state.bulkDirty = false; $("#bulkInputForm").reset(); }
+  });
 }
 async function applyBulkInput(event) {
   event.preventDefault();
   const type = $("#bulkInputForm").dataset.type;
-  const amount = Number($("#bulkInputValue").value);
-  if (!Number.isFinite(amount) || (type === "offer" && (amount < 0 || amount > 100))) return;
+  const value = $("#bulkInputValue").value.trim();
+  const amount = Number(value);
+  if (!value) return showFieldError($("#bulkInputValue"), "Ingresá un porcentaje.");
+  if (!Number.isFinite(amount) || (type === "offer" && (amount < 0 || amount > 100))) return showFieldError($("#bulkInputValue"), "Ingresá un porcentaje entre 0 y 100.");
   const rounding = Number($("#bulkRounding").value) || 0;
-  $("#bulkInputDialog").close();
+  const dialog = $("#bulkInputDialog");
+  const opener = modalData.get(dialog)?.opener;
+  await closeModal(dialog, "continue", true);
   if (type === "price") {
     const products = selectedProducts();
     const preview = $("#previewList");
@@ -460,9 +619,9 @@ async function applyBulkInput(event) {
       const prices = document.createElement("strong"); prices.textContent = `${money(product.precio)} → ${money(next)}`;
       row.append(name, prices); preview.append(row);
     });
-    $("#previewDialog").showModal();
+    openModal($("#previewDialog"), { opener });
     $("#applyPreview").onclick = async () => {
-      $("#previewDialog").close();
+      await closeModal($("#previewDialog"), "apply", true);
       await updateBulkProducts(products, (product) => {
         const next = rounding ? Math.round((Number(product.precio) * (1 + amount / 100)) / rounding) * rounding : Math.round(Number(product.precio) * (1 + amount / 100));
         return { precio: Math.max(0, next) };
@@ -496,12 +655,20 @@ function fillEditor(product) {
   $("#productDetails").value = Array.isArray(state.draft.detalles) ? state.draft.detalles.join(" | ") : state.draft.detalles || "";
   $("#productDescription").value = state.draft.descripcion || "";
   state.dirty = false;
+  clearFieldErrors($("#productForm"));
   renderColors();
   message(editorFeedback, "");
 }
 function openEditor(product) {
   fillEditor(product);
-  editorDialog.showModal();
+  openModal(editorDialog, {
+    dirty: () => state.dirty,
+    discard: () => {
+      state.dirty = false;
+      state.pendingFiles = new Map();
+      $("#productForm").reset();
+    }
+  });
 }
 function renderColors() {
   const list = $("#colorsList");
@@ -517,6 +684,7 @@ function renderColors() {
     const hex = document.createElement("input");
     hex.type = "color";
     hex.value = /^#[0-9a-f]{6}$/i.test(color.hex || "") ? color.hex : "#11b5c3";
+    hex.defaultValue = hex.value;
     hex.addEventListener("input", () => { color.hex = hex.value; state.dirty = true; });
     const actions = document.createElement("div");
     actions.className = "color-row-actions";
@@ -601,6 +769,7 @@ async function uploadFiles(productId) {
 }
 async function saveProduct(event) {
   event.preventDefault();
+  clearFieldErrors($("#productForm"));
   const draft = state.draft;
   draft.nombre = $("#productName").value.trim();
   draft.precio = Number($("#productPrice").value);
@@ -612,9 +781,10 @@ async function saveProduct(event) {
   draft.orden = Math.round(Number($("#productOrder").value) || 0);
   draft.detalles = $("#productDetails").value.split("|").map((item) => item.trim()).filter(Boolean);
   draft.descripcion = $("#productDescription").value.trim();
-  if (!draft.nombre) { message(editorFeedback, "El nombre es obligatorio.", true); return; }
-  if (!Number.isFinite(draft.precio) || draft.precio < 0) { message(editorFeedback, "El precio debe ser mayor o igual a 0.", true); return; }
-  if (draft.precio_oferta !== null && (draft.precio_oferta < 0 || draft.precio_oferta >= draft.precio)) { message(editorFeedback, "El precio de oferta debe ser menor al precio.", true); return; }
+  if (!draft.nombre) return showFieldError($("#productName"), "Ingresá un nombre.");
+  if (!$("#productPrice").value.trim() || !Number.isFinite(draft.precio) || draft.precio < 0) return showFieldError($("#productPrice"), "Ingresá un precio válido.");
+  if (!draft.categoria_id) return showFieldError($("#productCategory"), "Elegí una categoría.");
+  if (draft.precio_oferta !== null && (draft.precio_oferta < 0 || draft.precio_oferta >= draft.precio)) return showFieldError($("#productOfferPrice"), "Debe ser menor al precio.");
   $("#saveProductButton").disabled = true;
   message(editorFeedback, "Guardando…");
   try {
@@ -638,7 +808,7 @@ async function saveProduct(event) {
     message(editorFeedback, "Guardado ✓");
     state.dirty = false;
     await loadCatalog();
-    setTimeout(() => editorDialog.close(), 450);
+    setTimeout(() => closeModal(editorDialog, "saved", true), 450);
   } catch (error) {
     message(editorFeedback, error.message || "No se pudo guardar.", true);
   } finally { $("#saveProductButton").disabled = false; }
@@ -715,16 +885,45 @@ async function updateCategory(category, changes) {
 function openCategoryEditor(category) {
   state.categoryEditing = category || null;
   state.categoryFiles = null;
+  state.categoryDirty = false;
+  state.categoryImageRemoved = false;
+  if (state.categoryPreviewUrl) URL.revokeObjectURL(state.categoryPreviewUrl);
+  state.categoryPreviewUrl = null;
   $("#categoryDialogTitle").textContent = category ? "Editar categoría" : "Nueva categoría";
   $("#categoryName").value = category?.nombre || "";
   $("#categoryImage").value = "";
-  $("#categoryDialog").showModal();
+  $("#categoryImageName").textContent = category?.imagen_url ? "Imagen actual" : "Ninguna imagen elegida";
+  const preview = $("#categoryImagePreview");
+  preview.hidden = !category?.imagen_url;
+  if (category?.imagen_url) preview.querySelector("img").src = category.imagen_url;
+  clearFieldErrors($("#categoryForm"));
+  openModal($("#categoryDialog"), {
+    dirty: () => state.categoryDirty,
+    discard: () => {
+      state.categoryDirty = false;
+      state.categoryFiles = null;
+      state.categoryImageRemoved = false;
+      if (state.categoryPreviewUrl) URL.revokeObjectURL(state.categoryPreviewUrl);
+      state.categoryPreviewUrl = null;
+      $("#categoryForm").reset();
+      preview.hidden = true;
+    }
+  });
+}
+function showCategoryImage(file) {
+  const preview = $("#categoryImagePreview");
+  if (state.categoryPreviewUrl) URL.revokeObjectURL(state.categoryPreviewUrl);
+  state.categoryPreviewUrl = URL.createObjectURL(file);
+  preview.querySelector("img").src = state.categoryPreviewUrl;
+  preview.hidden = false;
+  $("#categoryImageName").textContent = file.name;
 }
 async function saveCategory(event) {
   event.preventDefault();
+  clearFieldErrors($("#categoryForm"));
   const name = $("#categoryName").value.trim();
-  if (!name) return;
-  let imageUrl = state.categoryEditing?.imagen_url || "";
+  if (!name) return showFieldError($("#categoryName"), "Ingresá un nombre.");
+  let imageUrl = state.categoryImageRemoved ? "" : state.categoryEditing?.imagen_url || "";
   const file = $("#categoryImage").files[0];
   if (file) {
     const compressed = await compressImage(file);
@@ -739,13 +938,40 @@ async function saveCategory(event) {
     ? await window.db.from("categorias").update(payload).eq("id", state.categoryEditing.id).select().single()
     : await window.db.from("categorias").insert({ ...payload, orden: state.categories.length, visible: true }).select().single();
   if (result.error) return message($("#categoryFeedback"), result.error.message, true);
-  $("#categoryDialog").close(); await loadCatalog(); renderCategoryList();
+  await closeModal($("#categoryDialog"), "saved", true);
+  state.categoryDirty = false;
+  if (state.categoryPreviewUrl) URL.revokeObjectURL(state.categoryPreviewUrl);
+  state.categoryPreviewUrl = null;
+  await loadCatalog(); renderCategoryList();
 }
 async function deleteCategory(category) {
   const products = state.products.filter((product) => String(product.categoria_id) === String(category.id));
   if (products.length) {
-    const target = window.prompt(`La categoría tiene ${products.length} productos. Ingresá otra categoría para moverlos o dejá vacío para dejarlos sin categoría.`, "");
-    if (target === null) return;
+    const select = $("#moveCategoryValue");
+    select.replaceChildren();
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = "Sin categoría";
+    select.append(empty);
+    state.categories.filter((item) => String(item.id) !== String(category.id)).forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.id;
+      option.textContent = item.nombre;
+      select.append(option);
+    });
+    state.moveCategory = category;
+    state.moveCategoryDirty = false;
+    openModal($("#moveCategoryDialog"), {
+      dirty: () => state.moveCategoryDirty,
+      discard: () => { state.moveCategoryDirty = false; $("#moveCategoryForm").reset(); }
+    });
+    return;
+  }
+  await confirmDeleteCategory(category, null);
+}
+async function confirmDeleteCategory(category, target) {
+  const products = state.products.filter((product) => String(product.categoria_id) === String(category.id));
+  if (products.length && target !== null) {
     const result = await window.db.from("productos").update({ categoria_id: target || null }).eq("categoria_id", category.id);
     if (result.error) return message($("#categoryFeedback"), result.error.message, true);
   }
@@ -772,17 +998,26 @@ function exportCsv() {
   downloadFile(`law-productos-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${lines.join("\n")}`, "text/csv;charset=utf-8");
 }
 function askConfirmation(text) {
+  const discard = text.startsWith("Hay cambios sin guardar.");
+  if (discard) {
+    $("#confirmTitle").textContent = "¿Descartar cambios?";
+    $("#confirmAction").textContent = "Descartar";
+    $("#confirmAction").className = "primary-button";
+  } else {
+    $("#confirmTitle").textContent = "¿Eliminar producto?";
+    $("#confirmAction").textContent = "Eliminar";
+    $("#confirmAction").className = "danger-button";
+  }
   $("#confirmText").textContent = text;
-  confirmDialog.showModal();
-  return new Promise((resolve) => {
-    const finish = (value) => { confirmDialog.removeEventListener("close", onClose); resolve(value); };
-    const onClose = () => finish(confirmDialog.returnValue === "confirm");
-    confirmDialog.addEventListener("close", onClose, { once: true });
-  });
+  return new Promise((resolve) => openModal(confirmDialog, { onClose: (value) => resolve(value === "confirm") }));
 }
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  clearFieldErrors(loginForm);
+  if (!$("#loginEmail").value.trim()) return showFieldError($("#loginEmail"), "Ingresá tu email.");
+  if (!$("#loginEmail").validity.valid) return showFieldError($("#loginEmail"), "Ingresá un email válido.");
+  if (!$("#loginPassword").value) return showFieldError($("#loginPassword"), "Ingresá tu contraseña.");
   if (!window.db) { message(loginFeedback, "Supabase no está configurado.", true); return; }
   message(loginFeedback, "Ingresando…");
   const { data, error } = await window.db.auth.signInWithPassword({ email: $("#loginEmail").value.trim(), password: $("#loginPassword").value });
@@ -819,13 +1054,6 @@ $("#productOfferPercent").addEventListener("input", (event) => {
   const percent = Number(event.target.value);
   if (price && percent >= 0 && percent <= 100) $("#productOfferPrice").value = Math.round(price * (1 - percent / 100));
 });
-$("#closeEditor").addEventListener("click", async () => {
-  if (state.dirty && !(await askConfirmation("Hay cambios sin guardar. ¿Cerrar igualmente?"))) return;
-  editorDialog.close();
-});
-editorDialog.addEventListener("cancel", async (event) => {
-  if (state.dirty) { event.preventDefault(); $("#closeEditor").click(); }
-});
 $("#productForm").addEventListener("input", () => { state.dirty = true; });
 $("#adminNav").addEventListener("click", (event) => {
   const button = event.target.closest("[data-view]");
@@ -839,6 +1067,29 @@ $("#adminNav").addEventListener("click", (event) => {
 });
 $("#newCategoryButton").addEventListener("click", () => openCategoryEditor());
 $("#categoryForm").addEventListener("submit", saveCategory);
+$("#categoryName").addEventListener("input", () => { state.categoryDirty = true; });
+$("#categoryForm").addEventListener("input", (event) => {
+  const error = event.target.closest(".campo")?.querySelector(".field-error");
+  if (error?.textContent) fieldError(event.target, "");
+});
+$("#categoryImage").addEventListener("change", (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  state.categoryFiles = file;
+  state.categoryImageRemoved = false;
+  state.categoryDirty = true;
+  showCategoryImage(file);
+});
+$("#removeCategoryImage").addEventListener("click", () => {
+  $("#categoryImage").value = "";
+  state.categoryFiles = null;
+  state.categoryImageRemoved = true;
+  state.categoryDirty = true;
+  $("#categoryImageName").textContent = "Ninguna imagen elegida";
+  $("#categoryImagePreview").hidden = true;
+  if (state.categoryPreviewUrl) URL.revokeObjectURL(state.categoryPreviewUrl);
+  state.categoryPreviewUrl = null;
+});
 $("#bulkBar").addEventListener("click", (event) => {
   const action = event.target.closest("[data-bulk]")?.dataset.bulk;
   if (!action) return;
@@ -854,12 +1105,61 @@ $("#selectAllButton").addEventListener("click", () => {
   renderProducts();
 });
 $("#bulkInputForm").addEventListener("submit", applyBulkInput);
+$("#bulkInputValue").addEventListener("input", () => { state.bulkDirty = true; });
+$("#bulkInputValue").addEventListener("input", (event) => {
+  if (event.target.closest(".campo")?.querySelector(".field-error")?.textContent) fieldError(event.target, "");
+});
+$("#bulkCategoryValue").addEventListener("change", () => { state.bulkDirty = true; });
+$("#bulkCategoryForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const products = state.bulkCategoryProducts;
+  const categoryId = $("#bulkCategoryValue").value;
+  if (!categoryId) return showFieldError($("#bulkCategoryValue"), "Elegí una categoría.");
+  await closeModal($("#bulkCategoryDialog"), "apply", true);
+  await updateBulkProducts(products, () => ({ categoria_id: categoryId }), "Categoría actualizada.");
+});
+$("#moveCategoryValue").addEventListener("change", () => { state.moveCategoryDirty = true; });
+$("#moveCategoryForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const category = state.moveCategory;
+  const target = $("#moveCategoryValue").value;
+  state.moveCategoryDirty = false;
+  await closeModal($("#moveCategoryDialog"), "continue", true);
+  if (category) await confirmDeleteCategory(category, target);
+});
+$("#offerValue").addEventListener("input", () => { state.offerDirty = true; });
+$("#offerValue").addEventListener("input", (event) => {
+  if ($("#offerValueError").textContent) fieldError(event.target, "");
+});
+$("#offerForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  clearFieldErrors($("#offerForm"));
+  const raw = $("#offerValue").value.trim();
+  const number = Number(raw);
+  const product = state.offerProduct;
+  if (!raw) return showFieldError($("#offerValue"), "Ingresá un precio o descuento.");
+  if (!Number.isFinite(number) || number < 0) return showFieldError($("#offerValue"), "Ingresá un valor válido.");
+  const precio_oferta = number < 100 ? Math.round(Number(product.precio) * (1 - number / 100)) : number;
+  if (precio_oferta >= Number(product.precio)) return showFieldError($("#offerValue"), "Debe ser menor al precio actual.");
+  if (await updateProduct(product, { precio_oferta, en_oferta: true })) {
+    state.offerDirty = false;
+    await closeModal($("#offerDialog"), "apply", true);
+    renderProducts();
+  }
+});
+$("#confirmAction").addEventListener("click", () => closeModal(confirmDialog, "confirm", true));
+$("#categoryForm").addEventListener("reset", () => {
+  clearFieldErrors($("#categoryForm"));
+});
 $("#exportJsonButton").addEventListener("click", exportJson);
 $("#exportCsvButton").addEventListener("click", exportCsv);
 $("#passwordForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+  clearFieldErrors(event.currentTarget);
   const password = $("#newPassword").value;
-  if (password !== $("#repeatPassword").value) return message($("#settingsFeedback"), "Las contraseñas no coinciden.", true);
+  if (!password) return showFieldError($("#newPassword"), "Ingresá una contraseña.");
+  if (password.length < 6) return showFieldError($("#newPassword"), "Usá al menos 6 caracteres.");
+  if (password !== $("#repeatPassword").value) return showFieldError($("#repeatPassword"), "Las contraseñas no coinciden.");
   const { error } = await window.db.auth.updateUser({ password });
   if (error) return message($("#settingsFeedback"), error.message, true);
   event.target.reset(); message($("#settingsFeedback"), "Contraseña actualizada ✓");
