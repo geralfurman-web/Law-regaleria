@@ -33,8 +33,8 @@
 
     <section class="panel" id="adminView" hidden>
       <header class="topbar">
-        <div><span class="eyebrow">CATÁLOGO</span><h1>Hola, dueña</h1></div>
-        <div class="topbar-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Activar modo oscuro" title="Activar modo oscuro" aria-pressed="false"><span aria-hidden="true">☾</span></button><button class="secondary-button" id="selectionButton" type="button">Seleccionar</button><button class="secondary-button" id="logoutButton" type="button">Salir</button></div>
+        <div><span class="eyebrow">CATÁLOGO</span><h1>Hola, Law Furman</h1></div>
+        <div class="topbar-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Activar modo oscuro" title="Activar modo oscuro" aria-pressed="false"><span aria-hidden="true">☾</span></button><button class="secondary-button" id="selectionButton" type="button" aria-pressed="false">Seleccionar</button><button class="secondary-button" id="logoutButton" type="button">Salir</button></div>
       </header>
 
       <div class="stats" id="stats" aria-label="Filtros rápidos"></div>
@@ -68,7 +68,7 @@
       <form id="passwordForm" novalidate><label class="campo">Nueva contraseña<input id="newPassword" type="password" minlength="6" autocomplete="new-password" required><small class="field-error" id="newPasswordError"></small></label><label class="campo">Repetir contraseña<input id="repeatPassword" type="password" minlength="6" autocomplete="new-password" required><small class="field-error" id="repeatPasswordError"></small></label><button class="primary-button" type="submit">Cambiar contraseña</button></form>
       <p class="feedback" id="settingsFeedback" role="status"></p>
     </div>
-    <div class="settings-card"><h3>Copias de seguridad</h3><div class="settings-actions"><button class="secondary-button" id="exportJsonButton" type="button">Descargar copia del catálogo</button><button class="secondary-button" id="exportCsvButton" type="button">Exportar a CSV</button></div></div>
+    <div class="settings-card"><h3>Copias de seguridad</h3><div class="settings-actions"><button class="secondary-button" id="exportJsonButton" type="button">Descargar copia del catálogo</button><button class="secondary-button" id="exportCsvButton" type="button">Exportar a CSV</button><button class="secondary-button" id="importProductsButton" type="button">⇧ Importar productos</button><button class="secondary-button" id="undoImportButton" type="button" hidden>Deshacer importación</button></div></div>
   </section>
 
   <section class="bulk-bar" id="bulkBar" hidden aria-label="Acciones masivas">
@@ -121,9 +121,40 @@
   <dialog class="modal confirm-dialog" id="moveCategoryDialog" aria-labelledby="moveCategoryTitle">
     <form id="moveCategoryForm" class="modal-cuerpo" novalidate><header class="modal-encabezado"><h2 id="moveCategoryTitle">Mover productos</h2><button class="close-button" type="button" aria-label="Cerrar" data-cerrar>×</button></header><p>Elegí una categoría o dejá sin categoría.</p><label class="campo">Categoría<select id="moveCategoryValue"></select></label><div class="dialog-actions modal-pie"><button class="secondary-button btn-cancelar" type="button" data-cerrar>Cancelar</button><button class="primary-button" type="submit">Continuar</button></div></form>
   </dialog>
+  <dialog class="modal import-dialog" id="importDialog" aria-labelledby="importTitle">
+    <div class="modal-cuerpo">
+      <header class="modal-encabezado"><h2 id="importTitle">Importar productos</h2><button class="close-button" id="closeImportDialog" type="button" aria-label="Cerrar" data-cerrar>×</button></header>
+      <section id="importStart">
+        <p>Importá productos desde un archivo CSV o Excel. Revisá la vista previa antes de confirmar los cambios.</p>
+        <ol class="import-steps"><li>Descargá la plantilla y completá sus columnas.</li><li>Elegí o soltá un archivo CSV, XLSX o XLS (máximo 5 MB).</li><li>Revisá los datos y confirmá la importación.</li></ol>
+        <button class="secondary-button" id="downloadImportTemplate" type="button">Descargar plantilla</button>
+        <label class="import-file-picker"><span class="secondary-button">⇧ Elegir archivo</span><input id="importFile" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"></label>
+        <div class="import-dropzone" id="importDropzone" tabindex="0">También podés arrastrar y soltar el archivo aquí.</div>
+      </section>
+      <section id="importPreviewSection" hidden>
+        <p class="import-summary" id="importSummary"></p>
+        <p class="feedback" id="importCategories" role="status"></p>
+        <div class="import-options"><label><input type="radio" name="importMode" value="all" checked> Crear nuevos y actualizar los existentes</label><label><input type="radio" name="importMode" value="new"> Crear solo productos nuevos</label></div>
+        <div class="import-preview-toolbar"><label>Filtrar<select id="importFilter"><option value="all">Todos</option><option value="new">Nuevos</option><option value="update">Actualizar</option><option value="error">Errores</option><option value="warning">Advertencias</option></select></label><button class="secondary-button small-button" id="downloadImportErrors" type="button">Descargar errores</button></div>
+        <div class="import-preview" id="importPreview" aria-live="polite"></div>
+      </section>
+      <section id="importProgressSection" hidden>
+        <p id="importProgressText" role="status"></p><progress id="importProgress" max="100" value="0"></progress>
+      </section>
+      <p class="feedback" id="importFeedback" role="alert"></p>
+      <div class="dialog-actions modal-pie" id="importActions">
+        <button class="secondary-button btn-cancelar" type="button" data-cerrar>Cancelar</button>
+        <button class="primary-button" id="startImportButton" type="button" disabled hidden>Importar 0 productos</button>
+        <button class="secondary-button" id="cancelImportButton" type="button" hidden>Cancelar importación</button>
+        <button class="secondary-button" id="undoImportResultButton" type="button" hidden>Deshacer importación</button>
+        <button class="primary-button" id="finishImportButton" type="button" hidden>Cerrar</button>
+      </div>
+    </div>
+  </dialog>
 
   <script src="theme.js"></script>
   <script src="window-manager.js"></script>
+  <script src="detalles.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="admin.js"></script>

@@ -2,7 +2,7 @@ if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 window.scrollTo(0, 0);
 window.addEventListener("load", () => window.scrollTo(0, 0), { once: true });
 
-const WHATSAPP_NUMBER = "5491100000000";
+const WHATSAPP_NUMBER = "5493548544005";
 const CONSULTATION_STORAGE_KEY = "law_consulta";
 
 let categoryData = [
@@ -119,7 +119,7 @@ function writeCatalogCache(data) {
   }
 }
 function normalizeProduct(row) {
-  if (row.name && row.colors) return row;
+  if (row.name && row.colors) return { ...row, details: normalizarDetalles(row.details ?? row.detalles) };
   const colors = Array.isArray(row.colores) ? row.colores.map((color) => ({
     name: color.nombre || color.name || "Natural",
     value: color.hex || color.value || "#11b5c3",
@@ -136,7 +136,7 @@ function normalizeProduct(row) {
     stock: row.stock == null ? null : Number(row.stock),
     estado: row.estado || "activo",
     colors: colors.length ? colors : [{ name: "Natural", value: "#eef0f1", image: placeholderImage(row.nombre, "#eef0f1") }],
-    details: Array.isArray(row.detalles) ? row.detalles : String(row.detalles || "").split("|").map((item) => item.trim()).filter(Boolean),
+    details: normalizarDetalles(row.detalles),
     description: row.descripcion || ""
   };
 }
@@ -322,7 +322,7 @@ function renderProducts() {
   productGrid.innerHTML = visible.map((product) => `
     <article class="product-card reveal${product.estado === "agotado" ? " is-sold-out" : ""}" data-id="${product.id}">
       <div class="product-card__media" role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(product.name)}"><img src="${escapeHTML(productImage(product))}" alt="${escapeHTML(product.name)}" loading="lazy" width="640" height="480">${product.estado === "agotado" ? '<span class="stock-badge">Agotado</span>' : ""}</div>
-      <div class="product-card__body"><h3>${escapeHTML(product.name)}</h3><p class="product-details">${escapeHTML(product.details.join(" · "))}</p><button class="detail-link" type="button" data-detail="${product.id}">Ver detalle</button>
+      <div class="product-card__body"><h3>${escapeHTML(product.name)}</h3><p class="product-details">${escapeHTML(normalizarDetalles(product.details).join(" · "))}</p><button class="detail-link" type="button" data-detail="${product.id}">Ver detalle</button>
         <div class="product-card__meta"><div class="color-dots">${product.colors.map((color, index) => `<button class="color-dot ${index === 0 ? "is-selected" : ""}" type="button" title="${escapeHTML(color.name)}" aria-label="Color ${escapeHTML(color.name)}" data-color="${escapeHTML(color.name)}" data-product="${product.id}" style="--dot:${escapeHTML(color.value)}"></button>`).join("")}</div><strong>${product.en_oferta && Number.isFinite(product.precio_oferta) ? `<s>${money(product.price)}</s> ${money(product.precio_oferta)}` : money(product.price)}</strong></div>
         <div class="product-card__actions"><button class="whatsapp-button quick-whatsapp" type="button" data-product="${product.id}">${product.estado === "agotado" ? "Consultar disponibilidad" : "◔  Consultar este"}</button><button class="outline-button add-consultation" type="button" data-product="${product.id}" ${product.estado === "agotado" ? "disabled" : ""}>+ Agregar a consulta</button></div>
       </div>
@@ -616,7 +616,23 @@ function openModal(id, offer = null, colorName = null, openerElement = null) {
   document.querySelector("#modalDescription").textContent = modalProduct.description;
   document.querySelector("#modalImage").src = productImage(modalProduct, modalColorIndex);
   document.querySelector("#modalImage").alt = modalProduct.name;
-  document.querySelector("#modalStats").innerHTML = modalProduct.details.map((detail) => `<span><strong>${escapeHTML(detail.split(" ")[0])}</strong><small>${escapeHTML(detail.substring(detail.indexOf(" ") + 1))}</small></span>`).join("");
+  const stats = document.querySelector("#modalStats");
+  stats.replaceChildren();
+  normalizarDetalles(modalProduct.details).forEach((detail) => {
+    const stat = document.createElement("span");
+    const separator = detail.indexOf(":");
+    const label = separator > 0 ? detail.slice(0, separator).trim() : "";
+    const value = label ? detail.slice(separator + 1).trim() : detail;
+    const strong = document.createElement("strong");
+    strong.textContent = value || detail;
+    stat.append(strong);
+    if (label && value) {
+      const small = document.createElement("small");
+      small.textContent = label;
+      stat.append(small);
+    }
+    stats.append(stat);
+  });
   document.querySelector("#modalColors").innerHTML = modalProduct.colors.map((color, index) => `<button class="color-dot ${index === modalColorIndex ? "is-selected" : ""}" type="button" aria-label="Color ${escapeHTML(color.name)}" data-modal-color="${index}" style="--dot:${escapeHTML(color.value)}"></button>`).join("");
   document.querySelectorAll("[data-modal-color]").forEach((button) => button.addEventListener("click", () => setModalColor(Number(button.dataset.modalColor))));
   updateModalAddLabel();

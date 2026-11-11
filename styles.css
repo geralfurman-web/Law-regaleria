@@ -174,11 +174,13 @@ button { font: inherit; }
 .catalog-tools { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 1rem 1.25rem; }
 .catalog-tools .search-box { grid-row: auto; max-width: none; margin-bottom: 0; }
 .filter-block--search { margin: 0; }
-.filter-toggle { display: inline-flex; align-items: center; gap: .55rem; min-height: 2.75rem; padding: 0 1rem; border: 0; border-radius: 999px; background: var(--color-dark); color: #fff; font-size: .75rem; font-weight: 700; cursor: pointer; }
+.filter-toggle { display: inline-flex; align-items: center; gap: .55rem; min-height: 2.75rem; padding: 0 1rem; border: 0; border-radius: 999px; background: var(--color-white); color: #000; font-size: .75rem; font-weight: 700; cursor: pointer; }
 .filter-icon { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2; }
 .filter-toggle b { display: grid; width: 1.25rem; height: 1.25rem; place-items: center; border-radius: 50%; background: var(--color-teal); font-size: .65rem; }
 .filter-toggle__close { display: none; font-size: 1.1rem; }
 .filter-toggle[aria-expanded="true"] .filter-toggle__close { display: inline; }
+
+
 .filter-panel { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; max-height: 0; overflow: hidden; padding: 0 1.4rem; border-radius: 1rem; background: #fff; opacity: 0; box-shadow: 0 10px 28px rgba(16,27,42,.1); transition: max-height .4s var(--ease-hero), opacity .3s ease, padding .4s var(--ease-hero); }
 .filter-panel.is-open { max-height: 30rem; padding-block: 1.4rem; opacity: 1; }
 .filter-column h4 { margin: 0 0 .8rem; color: var(--color-muted); font-size: .65rem; letter-spacing: .14em; text-transform: uppercase; }
@@ -244,12 +246,12 @@ button { font: inherit; }
 .benefit-icon { display: grid; width: 2.8rem; height: 2.8rem; place-items: center; margin-bottom: 1rem; border-radius: 50%; background: rgba(17,181,195,.14); color: var(--color-teal); font-size: 1.4rem; font-weight: 800; }
 .benefit-card h3 { margin: 0 0 .4rem; font-size: .95rem; }
 .benefit-card p { margin: 0; color: var(--color-muted); font-size: .75rem; line-height: 1.6; }
-.discounts { background: #fff; }
+.discounts { background: #ffffff; }
 .discount-controls { display: flex; gap: .5rem; }
 .discount-controls .carousel-arrow { position: static; transform: none; }
 .discount-carousel { display: flex; gap: 1rem; overflow-x: auto; padding: .2rem .2rem 1rem; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .discount-carousel::-webkit-scrollbar { display: none; }
-.discount-card { overflow: hidden; border-radius: 1.4rem; background: #f5f6f6; box-shadow: 0 12px 30px rgba(16,27,42,.07); }
+.discount-card { overflow: hidden; border-radius: 1.4rem; background: #000000; box-shadow: 0 12px 30px rgba(16,27,42,.07); }
 .discount-card { flex: 0 0 calc((100% - 2rem) / 3); scroll-snap-align: center; }
 .discount-card__image { position: relative; aspect-ratio: 1.4; overflow: hidden; }
 .discount-card__image img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s var(--ease-hero); }
@@ -688,6 +690,15 @@ button { font: inherit; }
 :root[data-theme="dark"] .modal-stats { border-color: var(--surface-border); }
 :root[data-theme="dark"] .site-footer { background: #101820; color: #edf2f4; }
 :root[data-theme="dark"] .theme-toggle { border-color: var(--surface-border); background: var(--surface); }
+:root[data-theme="dark"] .discount-banner { background: linear-gradient(135deg, #17232c 18%, #1d353b 100%); color: #f3f6f7; }
+:root[data-theme="dark"] .discount-fixed .section-kicker,
+:root[data-theme="dark"] .discount-fixed h2 em { color: #50d7df; }
+:root[data-theme="dark"] .discount-offer__copy p,
+:root[data-theme="dark"] .discount-offer__price s { color: #b7c5ca; }
+:root[data-theme="dark"] .discount-offer__price strong { color: #f3f6f7; }
+:root[data-theme="dark"] .discount-offer__button { border-color: #50d7df; background: #263a43; color: #f3f6f7; }
+:root[data-theme="dark"] .discount-controls .carousel-arrow { border-color: #50d7df; background: #263a43; color: #50d7df; }
+:root[data-theme="dark"] .discount-banner > .carousel-dots button { background: #566a70; }
 @media (max-width: 480px) {
   .theme-toggle { width: 2.25rem; height: 2.25rem; }
 }
